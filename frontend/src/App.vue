@@ -1,30 +1,70 @@
-<script setup>
-import HelloWorld from './components/HelloWorld.vue'
-</script>
-
 <template>
-  <div>
-    <a href="https://vite.dev" target="_blank">
-      <img src="/vite.svg" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
+  <div class="container">
+    <h1>SimpleStorage Test</h1>
+
+    <p>Valore attuale: {{ currentValue }}</p>
+
+    <input type="number" v-model="newValue" placeholder="Nuovo valore" />
+    <button @click="setValue">Aggiorna valore</button>
+
+    <p v-if="txHash">Ultima transazione: {{ txHash }}</p>
   </div>
-  <HelloWorld msg="Vite + Vue" />
 </template>
 
-<style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
+<script setup>
+import { ref, onMounted } from 'vue';
+import Web3 from 'web3';
+import SimpleStorageABI from './abis/SimpleStorage.json';
+
+const currentValue = ref(0);
+const newValue = ref(0);
+const txHash = ref('');
+
+let web3;
+let accounts;
+let contract;
+
+onMounted(async () => {
+  if (!window.ethereum) {
+    alert('MetaMask non rilevato!');
+    return;
+  }
+
+  web3 = new Web3(window.ethereum);
+  await window.ethereum.request({ method: 'eth_requestAccounts' });
+  accounts = await web3.eth.getAccounts();
+
+  const networkId = await web3.eth.net.getId();
+  const deployedNetwork = SimpleStorageABI.networks[networkId];
+
+  if (!deployedNetwork) {
+    alert('Contratto non deployato su questa rete');
+    return;
+  }
+
+  contract = new web3.eth.Contract(
+    SimpleStorageABI.abi,
+    deployedNetwork.address
+  );
+
+  currentValue.value = await contract.methods.getValue().call();
+});
+
+
+async function setValue() {
+  const receipt = await contract.methods
+    .setValue(newValue.value)
+    .send({ from: accounts[0] });
+
+  txHash.value = receipt.transactionHash;
+
+  const val = await contract.methods.getValue().call();
+  currentValue.value = val;
 }
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
-}
+</script>
+
+<style>
+.container { max-width: 400px; margin: 50px auto; text-align: center; }
+input { margin: 10px 0; padding: 5px; width: 100px; }
+button { padding: 5px 10px; }
 </style>
