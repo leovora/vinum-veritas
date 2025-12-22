@@ -21,8 +21,15 @@ html, body {
 </style>
 
 <style scoped>
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
 .splash-container {
-  /* Position fixed assicura che il div rimanga sopra ogni cosa e parta dall'angolo 0,0 */
   position: fixed;
   top: 0;
   left: 0;
@@ -33,23 +40,23 @@ html, body {
   justify-content: center;
   align-items: center;
   
-  background-color: #4b0c1e; /* Il tuo bordeaux elegante */
-  color: #ecf0f1;
+  background-color: var(--color-bordeaux);
+  color: var(--color-bianco);
   text-align: center;
-  z-index: 9999; /* Sta sopra a tutto il resto */
+  z-index: 9999;
 }
 
 .title {
   font-size: 4rem;
-  letter-spacing: 8px; /* Leggermente aumentato per eleganza */
+  letter-spacing: 8px;
   margin: 0;
-  font-family: 'Times New Roman', serif;
+  font-family: var(--font-header);
   font-weight: bold;
   text-transform: uppercase;
 }
 
 .subtitle {
-  font-family: 'Arial', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.1rem;
   opacity: 0.8;
   margin-top: 10px;
@@ -58,7 +65,7 @@ html, body {
 .loader {
   border: 4px solid rgba(255, 255, 255, 0.1);
   border-radius: 50%;
-  border-top: 4px solid #e74c3c;
+  border-top: 4px solid var(--color-rosso);
   width: 50px;
   height: 50px;
   animation: spin 1s linear infinite;
