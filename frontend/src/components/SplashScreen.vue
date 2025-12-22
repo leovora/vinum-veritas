@@ -33,7 +33,7 @@ html, body {
   justify-content: center;
   align-items: center;
   
-  background-color: #4b0c51; /* Il tuo bordeaux elegante */
+  background-color: #4b0c1e; /* Il tuo bordeaux elegante */
   color: #ecf0f1;
   text-align: center;
   z-index: 9999; /* Sta sopra a tutto il resto */
