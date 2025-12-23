@@ -1,70 +1,74 @@
+<!-- src/App.vue -->
 <template>
-  <div class="container">
-    <h1>SimpleStorage Test</h1>
-
-    <p>Valore attuale: {{ currentValue }}</p>
-
-    <input type="number" v-model="newValue" placeholder="Nuovo valore" />
-    <button @click="setValue">Aggiorna valore</button>
-
-    <p v-if="txHash">Ultima transazione: {{ txHash }}</p>
-  </div>
+  <AppHeader />
+  <transition name="fade">
+    <router-view />
+  </transition>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import Web3 from 'web3';
-import SimpleStorageABI from './abis/SimpleStorage.json';
+import { ref, onMounted, provide } from "vue";
+import { useRouter } from "vue-router";
+import AppHeader from "./components/AppHeader.vue";
+import Web3 from "web3";
+import WineProduction from "./abis/WineProduction.json";
+import { useUserStore } from './stores/user'
 
-const currentValue = ref(0);
-const newValue = ref(0);
-const txHash = ref('');
 
+const router = useRouter();
+
+const account = ref("");
+const role = ref("");
+const contract = ref(null);
 let web3;
-let accounts;
-let contract;
+
+const userStore = useUserStore()
+
+provide("userAddress", account);
+provide("userRole", role);
+provide("contractInstance", contract);
+
+//TODO: fare chiamata a contratto per ottenere ruolo reale
+const getUserRole = async () => {
+  return "admin";
+};
 
 onMounted(async () => {
-  if (!window.ethereum) {
-    alert('MetaMask non rilevato!');
-    return;
+  try {
+    const web3 = new Web3(window.ethereum);
+
+    const accounts = await window.ethereum.request({
+      method: "eth_requestAccounts",
+    });
+    account.value = accounts[0];
+
+    const networkId = await web3.eth.net.getId();
+    const deployed = WineProduction.networks[networkId];
+
+    contract.value = new web3.eth.Contract(
+      WineProduction.abi,
+      deployed.address
+    );
+
+    role.value = await getUserRole();
+
+    userStore.account = account.value
+    userStore.role = role.value
+
+    setTimeout(() => {
+      if (role.value === "admin") {
+        router.replace("/producer");
+      } else {
+        router.replace("/update");
+      }
+    }, 1000);
+  } catch (err) {
+    console.error("Errore durante inizializzazione:", err);
+    alert("Errore inizializzazione applicazione");
   }
-
-  web3 = new Web3(window.ethereum);
-  await window.ethereum.request({ method: 'eth_requestAccounts' });
-  accounts = await web3.eth.getAccounts();
-
-  const networkId = await web3.eth.net.getId();
-  const deployedNetwork = SimpleStorageABI.networks[networkId];
-
-  if (!deployedNetwork) {
-    alert('Contratto non deployato su questa rete');
-    return;
-  }
-
-  contract = new web3.eth.Contract(
-    SimpleStorageABI.abi,
-    deployedNetwork.address
-  );
-
-  currentValue.value = await contract.methods.getValue().call();
 });
-
-
-async function setValue() {
-  const receipt = await contract.methods
-    .setValue(newValue.value)
-    .send({ from: accounts[0] });
-
-  txHash.value = receipt.transactionHash;
-
-  const val = await contract.methods.getValue().call();
-  currentValue.value = val;
-}
 </script>
 
 <style>
-.container { max-width: 400px; margin: 50px auto; text-align: center; }
-input { margin: 10px 0; padding: 5px; width: 100px; }
-button { padding: 5px 10px; }
+@import "./assets/styles/vinum.css";
 </style>
