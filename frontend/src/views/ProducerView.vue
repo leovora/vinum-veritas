@@ -16,6 +16,12 @@
             btnClass="btn-bianco"
             :onCreate="creaLotti"
           />
+          <CreationCard
+          lineaText="Rosè"
+          linea="rose"
+          btnClass="btn-rose"
+          :onCreate="creaLotti"
+        />
         </div>
       </section>
 
@@ -37,6 +43,7 @@ import { ref, onMounted, watch } from "vue";
 import AppHeader from "../components/AppHeader.vue";
 import CreationCard from "../components/CreationCard.vue";
 import ProcessTable from "../components/ProcessTable.vue";
+
 
 const props = defineProps({
   userAddress: String,
@@ -122,6 +129,14 @@ onMounted(() => {
 </script>
 
 <style scoped>
+
+:global(html), :global(body) {
+  margin: 0;
+  padding: 0;
+  overflow-y: auto !important; /* Forza lo scroll verticale */
+  height: auto !important;
+}
+
 .producer-page-wrapper {
   width: 100%;
   background-color: var(--color-bg);

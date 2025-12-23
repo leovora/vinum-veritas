@@ -20,6 +20,7 @@ const router = useRouter();
 const account = ref("");
 const role = ref("");
 const contract = ref(null);
+let web3;
 
 const userStore = useUserStore()
 

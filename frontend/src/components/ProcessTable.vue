@@ -22,10 +22,12 @@
               <span
                 :class="[
                   'badge',
-                  lotto.tipo.includes('Rosso') ? 'b-rosso' : 'b-bianco',
+                  lotto.tipo.includes('Rosso') ? 'b-rosso' : 
+                  lotto.tipo.includes('Bianco') ? 'b-bianco' : 'b-rosa'
                 ]"
-                >{{ lotto.tipo }}</span
               >
+                {{ lotto.tipo }}
+              </span>
               <div class="progress-container">
                 <div
                   class="progress-bar"
@@ -81,7 +83,7 @@ const props = defineProps({
 }
 
 .process-table th {
-  text-align: left;
+  text-align: center;
   padding: 15px;
   background: var(--color-grigio-chiaro);
   color: var(--color-grigio-scuro);
@@ -92,6 +94,7 @@ const props = defineProps({
 .process-table td {
   padding: 18px 15px;
   border-bottom: 1px solid var(--color-grigio-chiaro);
+  text-align: center;
 }
 
 .badge {
@@ -104,6 +107,7 @@ const props = defineProps({
 
 .b-rosso { background: var(--color-rosso); }
 .b-bianco { background: var(--color-giallo); }
+.b-rosa {background: var(--color-rosa);}
 
 .type-progress-col {
   display: flex;
@@ -112,7 +116,7 @@ const props = defineProps({
 }
 
 .progress-container {
-  width: 100px;
+  width: 100%;
   height: 6px;
   background: var(--progress-bg);
   border-radius: 10px;

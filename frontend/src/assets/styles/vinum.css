@@ -17,6 +17,7 @@
   /* COLORI PRINCIPALI */
   --color-bordeaux: #4b0c1e;
   --color-bianco: #ffffff;
+  --color-rosa: #f9c0cd;
   --color-rosso: #8b1a1a;
   --color-giallo: #c4a717;
   --color-verde: #2e7d32;
@@ -28,6 +29,7 @@
   --color-overlay: rgba(0,0,0,0.3);
   --color-overlay-giallo: rgba(215, 193, 45, 0.3);
   --color-overlay-rosso: rgba(205, 56, 56, 0.3);
+  --color-overlay-rosa: rgb(255, 210, 244);
 
   /* FONT E DIMENSIONI */
   --font-header: "Times New Roman", serif;
@@ -71,7 +73,7 @@
   --btn-step-disabled: #ccc;
 
   /* BASE COLORI GLOBALI */
-  --base-text-color: rgba(255, 255, 255, 0.87);
+  --base-text-color: rgba(1, 1, 1, 0.87);
   --base-bg-color: #242424;
 }
 
@@ -118,4 +120,26 @@ button:hover { border-color: #646cff; }
     background-color: #ffffff;
   }
   button { background-color: #f9f9f9; }
+}
+::-webkit-scrollbar {
+  width: 8px;               /* Larghezza della barra verticale */
+  height: 8px;              /* Altezza della barra orizzontale */
+}
+
+/* Lo sfondo della traccia (il binario dove scorre la barra) */
+::-webkit-scrollbar-track {
+  background: #f1f1f1; 
+  border-radius: 10px;
+}
+
+/* La barra vera e propria (la parte che si trascina) */
+::-webkit-scrollbar-thumb {
+  background: #4b0c1e;      /* Il colore vinaccia dell'header */
+  border-radius: 10px;
+  border: 2px solid #f1f1f1; /* Crea un piccolo spazio intorno alla barra */
+}
+
+/* Colore della barra quando ci passi sopra con il mouse */
+::-webkit-scrollbar-thumb:hover {
+  background: #6b122b;      /* Un vinaccia leggermente più chiaro */
 }
