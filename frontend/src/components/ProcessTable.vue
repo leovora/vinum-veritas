@@ -42,20 +42,47 @@
             }}</span>
           </td>
           <td class="actions-cell">
-            <button
-              @click="avanza(lotto, 'vendemmiato')"
-              :disabled="lotto.stato !== 'creato'"
+            <div class="btn-group">
+              <button
+                @click="avanza(lotto)"
+                :disabled="lotto.stato !== 'creato'"
+                class="btn-step"
+              >
+                🍇 Vendemmia
+              </button>
+
+              <button
+                @click="avanza(lotto)"
+                :disabled="lotto.stato !== 'vendemmiato'"
+                class="btn-step"
+              >
+                🧪 Fermentazione
+              </button>
+
+              <button
+                @click="avanza(lotto)"
+                :disabled="lotto.stato !== 'fermentato'"
+                class="btn-step"
+              >
+                🏺 Affinamento
+              </button>
+
+              <button
+              @click="avanza(lotto)"
+              :disabled="lotto.stato !== 'affinato'" 
               class="btn-step"
             >
-              🍇 Vendemmia
+              🍾 Imbottigliamento
             </button>
-            <button
-              @click="avanza(lotto, 'fermentato')"
-              :disabled="lotto.stato !== 'vendemmiato'"
-              class="btn-step"
-            >
-              🧪 Fermentazione
-            </button>
+
+              <button
+                @click="avanza(lotto)"
+                :disabled="lotto.stato !== 'imbottigliato'"
+                class="btn-step"
+              >
+                🚚 Distribuzione
+              </button>
+            </div>
           </td>
         </tr>
       </tbody>
@@ -75,50 +102,59 @@ const props = defineProps({
 <style scoped>
 .process-table-container {
   overflow-x: auto;
+  padding: 10px;
 }
 
 .process-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0 10px; /* Crea un effetto "card" per ogni riga */
 }
 
 .process-table th {
   text-align: center;
   padding: 15px;
-  background: var(--color-grigio-chiaro);
   color: var(--color-grigio-scuro);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .process-table td {
-  padding: 18px 15px;
-  border-bottom: 1px solid var(--color-grigio-chiaro);
+  padding: 15px;
+  background: white;
+  border-top: 1px solid #eee;
+  border-bottom: 1px solid #eee;
   text-align: center;
 }
 
+/* Arrotondamento bordi per effetto card */
+.process-table td:first-child { border-left: 1px solid #eee; border-radius: 10px 0 0 10px; }
+.process-table td:last-child { border-right: 1px solid #eee; border-radius: 0 10px 10px 0; }
+
 .badge {
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 20px;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: bold;
-  color: var(--color-bianco);
+  color: white;
 }
 
 .b-rosso { background: var(--color-rosso); }
 .b-bianco { background: var(--color-giallo); }
-.b-rosa {background: var(--color-rosa);}
+.b-rosa { background: #db7093; }
 
 .type-progress-col {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 8px;
 }
 
 .progress-container {
-  width: 100%;
+  width: 100px;
   height: 6px;
-  background: var(--progress-bg);
+  background: #eee;
   border-radius: 10px;
   overflow: hidden;
 }
@@ -130,47 +166,52 @@ const props = defineProps({
 }
 
 .status-pill {
-  padding: 4px 10px;
-  border-radius: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
   font-size: 0.8rem;
   font-weight: bold;
+  display: inline-block;
+  min-width: 110px;
 }
 
-.creato {
-  background: var(--color-grigio-chiaro);
-  color: var(--color-grigio-scuro);
-}
+/* Colori stati */
+.creato { background: #f8f9fa; color: #6c757d; border: 1px solid #dee2e6; }
+.vendemmiato { background: #e6fffa; color: #2d3748; border: 1px solid #b2f5ea; }
+.fermentato { background: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; }
+.affinato { background: #fffaf0; color: #9c4221; border: 1px solid #feebc8; }
+.imbottigliato { background: #f7fafc; color: #2d3748; border: 1px solid #edf2f7; }
+.distribuito { background: #faf5ff; color: #6b46c1; border: 1px solid #e9d8fd; }
 
-.vendemmiato {
-  background: var(--status-vendemmiato-bg);
-  color: var(--color-verde);
-}
-
-.fermentato {
-  background: var(--status-fermentato-bg);
-  color: var(--color-blu);
+.btn-group {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap; /* Importante: se lo spazio finisce, i bottoni vanno a capo */
 }
 
 .btn-step {
-  background: var(--color-bianco);
-  border: 2px solid var(--color-bordeaux);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: white;
+  border: 1.5px solid var(--color-bordeaux);
   color: var(--color-bordeaux);
-  padding: 6px 14px;
-  border-radius: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
   cursor: pointer;
-  margin-right: 8px;
   font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .btn-step:disabled {
-  border-color: var(--btn-step-disabled);
-  color: var(--btn-step-disabled);
-  cursor: not-allowed;
+  display: none; /* Nascondiamo i bottoni non pertinenti per pulizia visiva */
 }
 
 .btn-step:hover:not(:disabled) {
   background: var(--color-bordeaux);
-  color: var(--color-bianco);
+  color: white;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
-
 </style>
