@@ -47,6 +47,10 @@ const creaLotti = (tipo, quantita) => {
   background: var(--color-overlay-giallo); 
   border: 1px solid var(--color-giallo); 
 }
+.rose {
+  background: var( --color-overlay-rosa); 
+  border: 1px solid var(--color-rosa); 
+}
 
 .creation-card h3,
 .creation-card label {
@@ -89,5 +93,8 @@ const creaLotti = (tipo, quantita) => {
   background-color: var(--color-giallo); 
   color: var(--color-text-dark); 
 }
-
+.btn-rose { 
+  background-color:var(--color-rosa); 
+  color: black;
+}
 </style>
