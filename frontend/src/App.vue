@@ -1,35 +1,73 @@
+<!-- src/App.vue -->
 <template>
+  <AppHeader />
   <transition name="fade">
-    <SplashScreen v-if="loading" />
+    <router-view />
   </transition>
-  <ProducerView v-if="!loading" :user-address="account" :contract-instance="contract" />
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import Web3 from 'web3';
-import WineProduction from './abis/WineProduction.json';
-import SplashScreen from './views/SplashView.vue';
-import ProducerView from './views/ProducerView.vue';
+import { ref, onMounted, provide } from "vue";
+import { useRouter } from "vue-router";
+import AppHeader from "./components/AppHeader.vue";
+import Web3 from "web3";
+import WineProduction from "./abis/WineProduction.json";
+import { useUserStore } from './stores/user'
 
-const loading = ref(true);
-const account = ref('');
+
+const router = useRouter();
+
+const account = ref("");
+const role = ref("");
 const contract = ref(null);
 
+const userStore = useUserStore()
+
+provide("userAddress", account);
+provide("userRole", role);
+provide("contractInstance", contract);
+
+//TODO: fare chiamata a contratto per ottenere ruolo reale
+const getUserRole = async () => {
+  return "admin";
+};
+
 onMounted(async () => {
-  const web3 = new Web3(window.ethereum);
-  const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-  account.value = accounts[0];
+  try {
+    const web3 = new Web3(window.ethereum);
 
-  const networkId = await web3.eth.net.getId();
-  const deployed = WineProduction.networks[networkId];
+    const accounts = await window.ethereum.request({
+      method: "eth_requestAccounts",
+    });
+    account.value = accounts[0];
 
-  contract.value = new web3.eth.Contract(WineProduction.abi, deployed.address);
+    const networkId = await web3.eth.net.getId();
+    const deployed = WineProduction.networks[networkId];
 
-  setTimeout(() => loading.value = false, 1000);
+    contract.value = new web3.eth.Contract(
+      WineProduction.abi,
+      deployed.address
+    );
+
+    role.value = await getUserRole();
+
+    userStore.account = account.value
+    userStore.role = role.value
+
+    setTimeout(() => {
+      if (role.value === "admin") {
+        router.replace("/producer");
+      } else {
+        router.replace("/update");
+      }
+    }, 1000);
+  } catch (err) {
+    console.error("Errore durante inizializzazione:", err);
+    alert("Errore inizializzazione applicazione");
+  }
 });
 </script>
 
 <style>
-@import './assets/styles/vinum.css';
+@import "./assets/styles/vinum.css";
 </style>

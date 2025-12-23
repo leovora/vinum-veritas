@@ -1,7 +1,5 @@
 <template>
   <div class="producer-page-wrapper">
-    <AppHeader />
-
     <main class="dashboard-main">
       <section class="card creation-section">
         <div class="card-title"><h2>Configurazione Nuova Produzione</h2></div>

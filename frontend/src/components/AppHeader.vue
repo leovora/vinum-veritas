@@ -11,12 +11,13 @@
         <div v-if="isMenuOpen">
           <nav class="dropdown-menu">
             <ul>
-              <li @click="closeMenu">Processi</li>
-              <li @click="closeMenu">Ricerca</li>
-              <li @click="closeMenu">Storico</li>
-              <li @click="closeMenu">Assegna Ruoli</li>
+              <li v-for="link in visibleLinks" :key="link.to">
+                <RouterLink :to="link.to" class="menu-link" @click="closeMenu">
+                  {{ link.label }}
+                </RouterLink>
+              </li>
               <li class="divider"></li>
-              <li @click="closeMenu" class="logout">🚪 Logout</li>
+              <li @click="logout" class="logout">🚪 Logout</li>
             </ul>
           </nav>
         </div>
@@ -24,19 +25,55 @@
     </div>
 
     <div class="header-inner">
-      <h1>CENTRO DI PRODUZIONE</h1>
+      <h1>Vinum Veritas</h1>
       <p class="subtitle">
-        Gestione Lotti Vinicoli & Tracciabilità Smart Contract
+        Gestione Lotti Vinicoli & Tracciabilità
       </p>
     </div>
   </header>
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
+import { useUserStore } from '../stores/user'
+
+const userStore = useUserStore()
+
 const isMenuOpen = ref(false);
 const toggleMenu = () => (isMenuOpen.value = !isMenuOpen.value);
 const closeMenu = () => (isMenuOpen.value = false);
+
+const menuLinks = [
+  {
+    label: "Crea processi",
+    to: "/producer",
+    roles: ["admin"],
+  },
+  {
+    label: "Processi attivi",
+    to: "/update",
+    roles: ["supervisor"],
+  },
+  {
+    label: "Ricerca",
+    to: "/search",
+    roles: ["supervisor", "admin"],
+  },
+  {
+    label: "Storico",
+    to: "/history",
+    roles: ["supervisor", "admin"],
+  },
+  {
+    label: "Assegna Ruoli",
+    to: "/roles",
+    roles: ["admin"],
+  },
+];
+
+const visibleLinks = computed(() =>
+  menuLinks.filter((link) => link.roles.includes(userStore.role))
+);
 </script>
 
 <style scoped>
@@ -128,5 +165,14 @@ const closeMenu = () => (isMenuOpen.value = false);
 }
 .logout {
   color: var(--color-bordeaux);
+}
+.menu-link {
+  display: block;
+  text-decoration: none;
+  color: #333;
+}
+.menu-link.router-link-active {
+  color: var(--color-bordeaux);
+  font-weight: bold;
 }
 </style>
