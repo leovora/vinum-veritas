@@ -1,62 +1,111 @@
 const WineProduction = artifacts.require("WineProduction");
 
-contract("WineProduction - Gestione Lotti", (accounts) => {
-  const produttore = accounts[0];
-  const altroUtente = accounts[1];
+contract("WineProduction - Versione Finale No Note", (accounts) => {
+  const admin = accounts[0];
+  const produttore = accounts[1];
+  const supervisore = accounts[2];
+  const hacker = accounts[3];
+
   let instance;
 
-  // Prima di eseguire i test, recuperiamo il contratto deployato
   before(async () => {
     instance = await WineProduction.deployed();
   });
 
-  it("1. Dovrebbe creare un nuovo lotto correttamente", async () => {
-    // Il produttore crea un lotto "Chianti Classico 2024"
-    // Nota: passiamo { from: produttore } per simulare chi clicca il bottone
-    const tx = await instance.creaLotto("Chianti Classico 2024", { from: produttore });
+  // =========================================================
+  // SEZIONE 1: GESTIONE RUOLI
+  // =========================================================
 
-    // VERIFICA 1: L'evento 'LottoCreato' è stato emesso?
-    const log = tx.logs[0];
-    assert.equal(log.event, "LottoCreato", "L'evento LottoCreato non è stato emesso");
-    assert.equal(log.args.tipo, "Chianti Classico 2024", "Il tipo di vino nell'evento è sbagliato");
-
-    // VERIFICA 2: Il lotto è stato salvato nell'array 'lotti'?
-    // Usiamo l'indice 0 perché è il primo elemento
-    const lotto = await instance.lotti(0);
-    assert.equal(lotto.id, 1, "L'ID del primo lotto dovrebbe essere 1");
-    assert.equal(lotto.stato, 0, "Lo stato iniziale dovrebbe essere 0 (Creato)");
-    assert.equal(lotto.produttore, produttore, "Il produttore registrato non corrisponde");
+  it("1.1. L'Admin deve avere il ruolo 'ADMIN' automaticamente", async () => {
+    const ruolo = await instance.getRuolo(admin);
+    assert.equal(ruolo, "ADMIN", "Errore in inizializzazione Admin");
   });
 
-  it("2. Dovrebbe avanzare lo stato a 'Vendemmiato'", async () => {
-    // Il produttore avanza lo stato del lotto #0
-    const tx = await instance.avanzaStato(0, { from: produttore });
-
-    // VERIFICA: L'evento 'StatoAggiornato' è stato emesso?
-    const log = tx.logs[0];
-    assert.equal(log.event, "StatoAggiornato", "L'evento StatoAggiornato non è stato emesso");
-    
-    // VERIFICA: Lo stato è cambiato in blockchain?
-    const lotto = await instance.lotti(0);
-    assert.equal(lotto.stato, 1, "Lo stato dovrebbe essere ora 1 (Vendemmiato)");
+  it("1.2. Assegnazione corretta ruolo 'PRODUTTORE'", async () => {
+    await instance.impostaRuolo(produttore, "PRODUTTORE", { from: admin });
+    const ruolo = await instance.getRuolo(produttore);
+    assert.equal(ruolo, "PRODUTTORE", "Assegnazione Produttore fallita");
   });
 
-  it("3. Dovrebbe impedire a un estraneo di modificare lo stato", async () => {
+  it("1.3. Assegnazione corretta ruolo 'SUPERVISORE'", async () => {
+    await instance.impostaRuolo(supervisore, "SUPERVISORE", { from: admin });
+    const ruolo = await instance.getRuolo(supervisore);
+    assert.equal(ruolo, "SUPERVISORE", "Assegnazione Supervisore fallita");
+  });
+
+  it("1.4. SICUREZZA: Rifiuto ruoli non validi", async () => {
     try {
-      // Proviamo a far avanzare lo stato usando 'altroUtente' (che non è il produttore)
-      await instance.avanzaStato(0, { from: altroUtente });
-      assert.fail("Il contratto avrebbe dovuto lanciare un errore!");
+      await instance.impostaRuolo(produttore, "FANTASIA", { from: admin });
+      assert.fail("Doveva fallire (ruolo non valido)");
     } catch (err) {
-      // Ci aspettiamo che l'errore contenga la frase del require
-      assert.include(err.message, "Solo il produttore", "Il messaggio di errore non è quello aspettato");
+      assert.include(err.message, "Ruolo non valido", "Errore non corretto");
     }
   });
 
-  it("4. Dovrebbe completare il ciclo fino a 'Fermentato'", async () => {
-    // Avanziamo da Vendemmiato (1) a Fermentato (2)
-    await instance.avanzaStato(0, { from: produttore });
+  it("1.5. SICUREZZA: Hacker non può darsi ruoli", async () => {
+    try {
+      await instance.impostaRuolo(hacker, "ADMIN", { from: hacker });
+      assert.fail("Doveva fallire (hacker non è admin)");
+    } catch (err) {
+      assert.include(err.message, "Solo l'admin", "Errore non corretto");
+    }
+  });
+
+  // =========================================================
+  // SEZIONE 2: FILIERA VINO (Senza Note)
+  // =========================================================
+
+  it("2.1. Creazione Lotto (Solo Tipo, niente Note)", async () => {
+    // Ora passiamo SOLO il tipo, come da tuo contratto
+    await instance.creaLotto("Chianti Classico", { from: produttore });
     
-    const lotto = await instance.lotti(0);
-    assert.equal(lotto.stato, 2, "Lo stato dovrebbe essere ora 2 (Fermentato)");
+    const lotti = await instance.getLotti();
+    const ultimo = lotti[lotti.length - 1];
+
+    assert.equal(ultimo.tipo, "Chianti Classico", "Tipo errato");
+    assert.equal(ultimo.produttore, produttore, "Produttore errato");
+    assert.equal(ultimo.stato, 0, "Stato iniziale errato");
+  });
+
+  it("2.2. SICUREZZA: Hacker non può creare", async () => {
+    try {
+      await instance.creaLotto("Vino Falso", { from: hacker });
+      assert.fail("Doveva fallire");
+    } catch (err) {
+      assert.include(err.message, "Non hai il ruolo di PRODUTTORE", "Errore ruolo mancante");
+    }
+  });
+
+  it("2.3. Avanzamento Stato (Creato -> Vendemmiato)", async () => {
+    const lotti = await instance.getLotti();
+    // Usiamo l'indice corretto (length - 1 prende l'ultimo elemento)
+    const index = lotti.length - 1;
+
+    await instance.avanzaStato(index, { from: produttore });
+    
+    const lottoAggiornato = await instance.lotti(index);
+    assert.equal(lottoAggiornato.stato, 1, "Stato non avanzato a Vendemmiato");
+  });
+
+  it("2.4. Avanzamento Stato (Vendemmiato -> Fermentato)", async () => {
+    const lotti = await instance.getLotti();
+    const index = lotti.length - 1;
+
+    await instance.avanzaStato(index, { from: produttore });
+    
+    const lottoFinale = await instance.lotti(index);
+    assert.equal(lottoFinale.stato, 2, "Stato non avanzato a Fermentato");
+  });
+
+  it("2.5. SICUREZZA: Hacker non può avanzare stato", async () => {
+    const lotti = await instance.getLotti();
+    const index = lotti.length - 1;
+
+    try {
+      await instance.avanzaStato(index, { from: hacker });
+      assert.fail("Doveva fallire");
+    } catch (err) {
+      assert.include(err.message, "Solo il produttore", "Errore ownership mancante");
+    }
   });
 });
