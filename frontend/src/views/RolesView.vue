@@ -36,44 +36,51 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, inject } from "vue"; // Aggiunto inject
 import RolesForm from "../components/RolesForm.vue";
 import UsersTable from "../components/UsersTable.vue";
 
+// Recuperiamo l'istanza del contratto e l'indirizzo per rendere l'operazione REALE
+const userAddress = inject("userAddress");
+const contractInstance = inject("contractInstance");
+
 const availableRoles = [
-  { value: "admin", label: "Amministratore" },
-  { value: "producer", label: "Produttore" },
-  { value: "supervisor", label: "Supervisore" },
-  { value: "winery", label: "Cantina" },
-  { value: "carrier", label: "Corriere" },
-  { value: "distributor", label: "Distributore" },
+  { value: "ADMIN", label: "Amministratore" },
+  { value: "AGRICOLTORE", label: "Produttore (Agricoltore)" }, // Cambiato da producer
+  { value: "SUPERVISORE", label: "Supervisore" },
+  { value: "CANTINIERE", label: "Cantina" }, // Cambiato da winery
+  { value: "CORRIERE", label: "Corriere" }, // Cambiato da carrier
+  { value: "DISTRIBUTORE", label: "Distributore" },
 ];
 
 const users = ref([]);
 
-onMounted(async () => {
-  // MOCK: dati già presenti
-  users.value = [
-    { address: '0xFA55b1f74E6548B0a44822d7f589f3BA51015388', role: 'producer' },
-    { address: '0x832e2D1C32baFB201842B24Ea12e7B03e2Ca1965', role: 'supervisor' }
-  ];
+// Funzione REALE per assegnare il ruolo sulla Blockchain
+const assignRole = async (userData) => {
+  try {
+    // contractInstance deve essere caricato correttamente da App.vue
+    await contractInstance.value.methods
+      .assignRole(userData.address, userData.role) 
+      .send({ from: userAddress.value }); // userAddress deve essere l'Admin
 
-  // TODO: quando smart contract pronto
-  // users.value = await contract.methods.getUsers().call();
-});
-
-
-const assignRole = (user) => {
-  // MOCK — sostituibile con smart contract
-  users.value.push(user);
+    alert("Assegnato!");
+  } catch (error) {
+    console.error("Dettaglio Errore:", error);
+    alert("Errore Blockchain: controlla la console (F12)");
+  }
 };
 
 const removeUser = (address) => {
-  // MOCK — sostituibile con smart contract
-  users.value = users.value.filter(
-    (u) => u.address !== address
-  );
+  users.value = users.value.filter((u) => u.address !== address);
 };
+
+onMounted(() => {
+  // Mock iniziale (opzionale, meglio caricarli dal contratto se possibile)
+  users.value = [
+    { address: '0xFA55b1f74E6548B0a44822d7f589f3BA51015388', role: 'AGRICOLTORE' },
+    { address: '0x832e2D1C32baFB201842B24Ea12e7B03e2Ca1965', role: 'SUPERVISORE' }
+  ];
+});
 
 </script>
 
