@@ -2,8 +2,9 @@
 pragma solidity ^0.8.0;
 
 contract WineProduction {
-    enum Stato { Creato, Vendemmiato, Fermentato }
-
+    // 0: Creato, 1: Vendemmiato, 2: Fermentato, 3: Affinato, 4: Imbottigliato, 5: Distribuito
+    enum Stato { Creato, Vendemmiato, Fermentato, Affinato, Imbottigliato, Distribuito }    
+    
     struct Lotto {
         uint256 id;
         string tipo;
@@ -18,31 +19,27 @@ contract WineProduction {
     event LottoCreato(uint256 id, string tipo, address produttore);
     event StatoAggiornato(uint256 id, Stato nuovoStato);
 
-    // Funzione per creare un nuovo lotto
     function creaLotto(string memory _tipo) public {
         lotti.push(Lotto(nextId, _tipo, Stato.Creato, msg.sender, block.timestamp));
         emit LottoCreato(nextId, _tipo, msg.sender);
         nextId++;
     }
 
-    // Funzione per avanzare lo stato (Sequenziale)
+    // Funzione ottimizzata per avanzare attraverso TUTTI gli stati
     function avanzaStato(uint256 _index) public {
         require(_index < lotti.length, "Lotto inesistente");
         Lotto storage lotto = lotti[_index];
         require(msg.sender == lotto.produttore, "Solo il produttore puo aggiornare");
+        
+        // Controlliamo che non sia gia nell'ultimo stato (Distribuito = 5)
+        require(uint(lotto.stato) < uint(Stato.Distribuito), "Ciclo di produzione gia completato");
 
-        if (lotto.stato == Stato.Creato) {
-            lotto.stato = Stato.Vendemmiato;
-        } else if (lotto.stato == Stato.Vendemmiato) {
-            lotto.stato = Stato.Fermentato;
-        } else {
-            revert("Ciclo di produzione completato");
-        }
+        // Avanzamento matematico: incrementiamo l'indice dell'enum di 1
+        lotto.stato = Stato(uint(lotto.stato) + 1);
 
         emit StatoAggiornato(lotto.id, lotto.stato);
     }
 
-    // Funzione per leggere tutti i lotti
     function getLotti() public view returns (Lotto[] memory) {
         return lotti;
     }
