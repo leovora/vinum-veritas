@@ -39,17 +39,18 @@ contract WineProduction {
         if(hashRuolo == keccak256(bytes("ADMIN"))) return true;
         if(hashRuolo == keccak256(bytes("PRODUTTORE"))) return true;
         if(hashRuolo == keccak256(bytes("SUPERVISORE"))) return true;
+        if(hashRuolo == keccak256(bytes("NESSUNO"))) return true;
 
         return false;
     }
 
     //solo admin assegna i ruoli
-    function impostaRuolo(address _utente, string memory _etichettaRuolo) public{
+        function impostaRuolo(address _utente, string memory _etichettaRuolo) public {
         require(msg.sender == admin, "Solo l'admin puo gestire i ruoli");
-
-        //controllo di sicurezza
-        require(isRuoloValido(_etichettaRuolo), "Ruolo non valido! Usa solo: ADMIN, PRODUTTORE, SUPERVISORE");
         
+        // Ora "NESSUNO" passerà questo controllo!
+        require(isRuoloValido(_etichettaRuolo), "Ruolo non valido! Usa: ADMIN, PRODUTTORE, SUPERVISORE o NESSUNO");
+
         ruoli[_utente] = _etichettaRuolo;
         emit RuoloAssegnato(_utente, _etichettaRuolo);
     }
