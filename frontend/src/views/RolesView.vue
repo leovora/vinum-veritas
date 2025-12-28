@@ -36,52 +36,93 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject } from "vue"; // Aggiunto inject
+import { ref, onMounted, inject, computed } from "vue";
+import { useUserStore } from "../stores/user";
+
 import RolesForm from "../components/RolesForm.vue";
 import UsersTable from "../components/UsersTable.vue";
 
-// Recuperiamo l'istanza del contratto e l'indirizzo per rendere l'operazione REALE
-const userAddress = inject("userAddress");
+/* =========================
+   STORE & CONTRACT
+========================= */
+const userStore = useUserStore();
 const contractInstance = inject("contractInstance");
 
+const adminAddress = computed(() => userStore.account);
+const adminRole = computed(() => userStore.role);
+
+/* =========================
+   RUOLI DISPONIBILI
+========================= */
 const availableRoles = [
   { value: "ADMIN", label: "Amministratore" },
-  { value: "AGRICOLTORE", label: "Produttore (Agricoltore)" }, // Cambiato da producer
+  { value: "AGRICOLTORE", label: "Produttore" },
   { value: "SUPERVISORE", label: "Supervisore" },
-  { value: "CANTINIERE", label: "Cantina" }, // Cambiato da winery
-  { value: "CORRIERE", label: "Corriere" }, // Cambiato da carrier
+  { value: "CANTINIERE", label: "Cantina" },
+  { value: "CORRIERE", label: "Corriere" },
   { value: "DISTRIBUTORE", label: "Distributore" },
 ];
 
+/* =========================
+   UTENTI
+========================= */
 const users = ref([]);
 
-// Funzione REALE per assegnare il ruolo sulla Blockchain
-const assignRole = async (userData) => {
-  try {
-    // contractInstance deve essere caricato correttamente da App.vue
-    await contractInstance.value.methods
-      .assignRole(userData.address, userData.role) 
-      .send({ from: userAddress.value }); // userAddress deve essere l'Admin
+/* =========================
+   ASSIGN ROLE (ON-CHAIN)
+========================= */
+const assignRole = async ({ address, role, name }) => {
+  if (adminRole.value !== "ADMIN") {
+    alert("Solo un ADMIN può assegnare ruoli");
+    return;
+  }
 
-    alert("Assegnato!");
-  } catch (error) {
-    console.error("Dettaglio Errore:", error);
-    alert("Errore Blockchain: controlla la console (F12)");
+  try {
+    await contractInstance.value.methods
+      .assignRole(address, role)
+      .send({ from: adminAddress.value });
+
+    const existing = users.value.find(u => u.address === address);
+    if (existing) {
+      existing.role = role;
+      existing.name = name;
+    } else {
+      users.value.push({ address, role, name });
+    }
+
+    alert("Ruolo assegnato correttamente");
+  } catch (err) {
+    console.error("Errore assignRole:", err);
+    alert("Errore blockchain (vedi console)");
   }
 };
 
+/* =========================
+   REMOVE USER (UI ONLY)
+========================= */
 const removeUser = (address) => {
   users.value = users.value.filter((u) => u.address !== address);
 };
 
+/* =========================
+   INIT
+========================= */
 onMounted(() => {
-  // Mock iniziale (opzionale, meglio caricarli dal contratto se possibile)
+  // MOCK TEMPORANEO
+  // ideale: caricarli dal contratto (eventi RoleAssigned)
   users.value = [
-    { address: '0xFA55b1f74E6548B0a44822d7f589f3BA51015388', role: 'AGRICOLTORE' },
-    { address: '0x832e2D1C32baFB201842B24Ea12e7B03e2Ca1965', role: 'SUPERVISORE' }
+    {
+      address: "0xFA55b1f74E6548B0a44822d7f589f3BA51015388",
+      role: "AGRICOLTORE",
+      name: "Giorgione"
+    },
+    {
+      address: "0x832e2D1C32baFB201842B24Ea12e7B03e2Ca1965",
+      role: "CORRIERE",
+      name: "Bartolini"
+    },
   ];
 });
-
 </script>
 
 <style scoped>

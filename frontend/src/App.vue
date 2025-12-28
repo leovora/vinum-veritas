@@ -5,7 +5,7 @@
     </transition>
 
     <div v-if="!loading" class="app-content">
-      <AppHeader /> 
+      <AppHeader />
       <main class="container">
         <router-view />
       </main>
@@ -18,98 +18,109 @@ import { ref, onMounted, provide } from "vue";
 import { useRouter } from "vue-router";
 import Web3 from "web3";
 
-// Importazione Asset e Componenti
 import AppHeader from "./components/AppHeader.vue";
 import SplashScreen from "./views/SplashView.vue";
 import WineProductionJSON from "./abis/WineProduction.json";
-import { useUserStore } from './stores/user';
+import { useUserStore } from "./stores/user";
 
 const router = useRouter();
 const userStore = useUserStore();
 
-// STATI REATTIVI
 const loading = ref(true);
-const account = ref("");
-const role = ref("");
 const contract = ref(null);
 
-// Forniamo i dati a tutti i componenti figli (Injection)
-provide("userAddress", account);
-provide("userRole", role);
 provide("contractInstance", contract);
 
 /**
- * Logica per recuperare il ruolo dell'utente dal contratto
- * Per ora impostato come mock "admin"
+ * Recupera il ruolo dell'utente dal contratto
+ * Se non è assegnato ritorna "VISITATORE"
  */
-const getUserRole = async (userAddr) => {
-  // TODO: implementare chiamata reale: return await contract.value.methods.roles(userAddr).call();
-  return "admin"; 
-};
-
-onMounted(async () => {
-  console.log("Vinum Veritas: Avvio sessione Blockchain...");
-
-  // Gestione dinamica cambio account MetaMask
-  if (window.ethereum) {
-    window.ethereum.on('accountsChanged', () => window.location.reload());
-    window.ethereum.on('chainChanged', () => window.location.reload());
-  }
+const getUserRole = async (address) => {
+  if (!contract.value) return "VISITATORE";
 
   try {
-    if (!window.ethereum) {
-      alert("MetaMask non rilevato! Installa l'estensione per proseguire.");
-      return;
+    const roleHash = await contract.value.methods.roles(address).call();
+
+    if (
+      roleHash ===
+      "0x0000000000000000000000000000000000000000000000000000000000000000"
+    ) {
+      return "VISITATORE";
     }
 
-    const web3 = new Web3(window.ethereum);
-    
-    // Richiesta di connessione a MetaMask (Bloccante)
-    const accounts = await window.ethereum.request({ 
-      method: "eth_requestAccounts" 
-    });
-    
-    if (accounts.length > 0) {
-      account.value = accounts[0];
+    const rolesMap = {
+      [Web3.utils.keccak256("ADMIN")]: "ADMIN",
+      [Web3.utils.keccak256("AGRICOLTORE")]: "AGRICOLTORE",
+      [Web3.utils.keccak256("SUPERVISORE")]: "SUPERVISORE",
+      [Web3.utils.keccak256("CANTINIERE")]: "CANTINIERE",
+      [Web3.utils.keccak256("CORRIERE")]: "CORRIERE",
+      [Web3.utils.keccak256("DISTRIBUTORE")]: "DISTRIBUTORE",
+    };
 
-      // Inizializzazione del Contratto tramite l'ABI aggiornato
-      const networkId = await web3.eth.net.getId();
-      const deployedNetwork = WineProductionJSON.networks[networkId];
-
-      if (deployedNetwork) {
-        contract.value = new web3.eth.Contract(
-          WineProductionJSON.abi,
-          deployedNetwork.address
-        );
-        console.log("Smart Contract agganciato all'indirizzo:", deployedNetwork.address);
-      } else {
-        // Se arrivi qui, il promemoria dell'ABI è la soluzione!
-        throw new Error("Contratto non trovato sulla rete attuale. Controlla Ganache e il file JSON.");
-      }
-
-      // Definizione ruolo e salvataggio nello Store (Pinia)
-      role.value = await getUserRole(account.value);
-      userStore.account = account.value;
-      userStore.role = role.value;
-
-      // Fine caricamento e reindirizzamento
-      setTimeout(() => {
-        loading.value = false;
-        if (role.value === "admin") {
-          router.replace("/producer");
-        } else {
-          router.replace("/update");
-        }
-      }, 1500);
-    }
+    return rolesMap[roleHash] || "VISITATORE";
   } catch (err) {
-    console.error("Errore inizializzazione dApp:", err);
-    alert("Accesso negato. Connetti MetaMask e assicurati che il contratto sia migrato correttamente.");
+    console.error("Errore lettura ruolo:", err);
+    return "VISITATORE";
+  }
+};
+
+/**
+ * MOCK — in futuro verrà sostituita con chiamata on-chain
+ */
+const getUserRole_MOCK = async (address) => {
+  // TODO:
+  // const roleHash = await contract.value.methods.roles(address).call();
+  // return decodeRole(roleHash);
+  return "ADMIN";
+}
+
+onMounted(async () => {
+  console.log("Vinum Veritas — Avvio dApp");
+
+  if (!window.ethereum) {
+    alert("MetaMask non rilevato. Installa l'estensione.");
+    return;
+  }
+
+  window.ethereum.on("accountsChanged", () => window.location.reload());
+  window.ethereum.on("chainChanged", () => window.location.reload());
+
+  try {
+    const web3 = new Web3(window.ethereum);
+    const accounts = await window.ethereum.request({
+      method: "eth_requestAccounts",
+    });
+    if (!accounts.length) return;
+
+    const account = accounts[0];
+
+    const networkId = await web3.eth.net.getId();
+    const deployed = WineProductionJSON.networks[networkId];
+    if (!deployed) throw new Error("Contratto non trovato sulla rete corrente");
+
+    contract.value = new web3.eth.Contract(
+      WineProductionJSON.abi,
+      deployed.address
+    );
+
+    // Recupero ruolo reale dal contratto
+    const role = await getUserRole_MOCK(account);
+    userStore.setUser(account, role);
+
+    setTimeout(() => {
+      loading.value = false;
+
+      if (userStore.isAdmin) router.replace("/producer");
+      else if (userStore.isVisitatore) router.replace("/search");
+      else router.replace("/update");
+    }, 1200);
+  } catch (err) {
+    console.error("Errore inizializzazione:", err);
+    alert("Errore di connessione alla Blockchain");
   }
 });
 </script>
 
 <style>
-/* Caricamento stili globali */
 @import "./assets/styles/vinum.css";
 </style>

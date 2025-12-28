@@ -2,11 +2,12 @@
   <div class="role-form">
     <div class="form-row">
       <label>Address Ethereum</label>
-      <input
-        v-model="newUser.address"
-        type="text"
-        placeholder="0x..."
-      />
+      <input v-model="newUser.address" type="text" placeholder="0x..." />
+    </div>
+
+    <div class="form-row">
+      <label>Nome</label>
+      <input v-model="newUser.name" type="text" placeholder="Nome utente" />
     </div>
 
     <div class="form-row">
@@ -23,9 +24,7 @@
       </select>
     </div>
 
-    <button class="btn-primary" @click="submit">
-      Assegna ruolo
-    </button>
+    <button class="btn-primary" @click="submit">Assegna ruolo</button>
   </div>
 </template>
 
@@ -44,21 +43,24 @@ const emit = defineEmits(["assign"]);
 const newUser = reactive({
   address: "",
   role: "",
+  name: "",
 });
 
 const submit = () => {
-  if (!newUser.address || !newUser.role) {
-    alert("Inserisci address e ruolo");
+  if (!newUser.address || !newUser.role || !newUser.name) {
+    alert("Inserisci address, nome e ruolo");
     return;
   }
 
   emit("assign", {
     address: newUser.address,
     role: newUser.role,
+    name: newUser.name,
   });
 
   newUser.address = "";
   newUser.role = "";
+  newUser.name = "";
 };
 </script>
 
