@@ -67,10 +67,10 @@
                 🏢 Conferma Ricezione
               </button>
 
-              <button v-if="userRole === 'ADMIN'" @click="$emit('elimina', lotto)" class="btn-delete">
+            </div>
+            <button v-if="userRole === 'ADMIN'" @click="$emit('elimina', lotto)" class="btn-delete">
                 🗑️ Elimina
               </button>
-            </div>
           </td>
         </tr>
       </tbody>
