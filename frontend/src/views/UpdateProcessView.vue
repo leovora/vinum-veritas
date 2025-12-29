@@ -2,39 +2,9 @@
   <div class="producer-page-wrapper">
     <UserStatusBar :role="userRole" />
     <main class="dashboard-main">
-      <section v-if="userRole === 'ADMIN'" class="card creation-section">
-        <div class="card-title"><h2>Configurazione Nuova Produzione</h2></div>
-        <div class="creation-grid">
-          <CreationCard
-            lineaText="Rosso"
-            linea="rosso"
-            btnClass="btn-rosso"
-            :onCreate="creaLotti"
-          />
-          <CreationCard
-            lineaText="Bianco"
-            linea="bianco"
-            btnClass="btn-bianco"
-            :onCreate="creaLotti"
-          />
-          <CreationCard
-            lineaText="Rosè"
-            linea="rose"
-            btnClass="btn-rose"
-            :onCreate="creaLotti"
-          />
-        </div>
-      </section>
-
       <section class="card processes-section">
         <div class="card-title">
-          <h2>
-            {{
-              userRole === "ADMIN"
-                ? "Tutti i Processi Blockchain"
-                : "Le Mie Attività"
-            }}
-          </h2>
+          <h2>Processi attivi</h2>
         </div>
 
         <div v-if="loading" class="loading-overlay">
@@ -47,7 +17,6 @@
           :getStatusLabel="getStatusLabel"
           :getProgressWidth="getProgressWidth"
           :avanza="avanzaStato"
-          @elimina="handleEliminaLotto"
         />
       </section>
     </main>
@@ -57,8 +26,6 @@
 <script setup>
 import { ref, watch, computed, inject } from "vue";
 import { useUserStore } from "../stores/user";
-
-import CreationCard from "../components/CreationCard.vue";
 import ProcessTable from "../components/ProcessTable.vue";
 import UserStatusBar from "../components/UserStatusBar.vue";
 
@@ -67,7 +34,6 @@ const contractInstance = inject("contractInstance");
 
 const lotti = ref([]);
 const loading = ref(false);
-const isReady = ref(false);
 
 /* =========================
    RUOLO E ACCOUNT (STORE)
@@ -79,8 +45,6 @@ const userAddress = computed(() => userStore.account);
    FILTRI LOTTI
 ========================= */
 const filteredLotti = computed(() => {
-  if (userRole.value === "ADMIN") return lotti.value;
-
   return lotti.value.filter((lotto) => {
     switch (userRole.value) {
       case "AGRICOLTORE":
@@ -149,24 +113,8 @@ const loadLotti = async () => {
 };
 
 /* =========================
-   AZIONI
+   AZIONE: AVANZA STATO
 ========================= */
-const creaLotti = async (tipo, quantita) => {
-  if (!contractInstance.value) return;
-
-  loading.value = true;
-  try {
-    for (let i = 0; i < quantita; i++) {
-      await contractInstance.value.methods
-        .creaLotto(tipo)
-        .send({ from: userAddress.value });
-    }
-    await loadLotti();
-  } finally {
-    loading.value = false;
-  }
-};
-
 const avanzaStato = async (lotto) => {
   if (!contractInstance.value) return;
 
@@ -183,22 +131,6 @@ const avanzaStato = async (lotto) => {
   }
 };
 
-const handleEliminaLotto = async (lotto) => {
-  if (userRole.value !== "ADMIN") return;
-
-  if (!confirm("Eliminare definitivamente il lotto?")) return;
-
-  loading.value = true;
-  try {
-    await contractInstance.value.methods
-      .eliminaLotto(lotto.blockchainIndex)
-      .send({ from: userAddress.value });
-    await loadLotti();
-  } finally {
-    loading.value = false;
-  }
-};
-
 /* =========================
    INIT
 ========================= */
@@ -206,9 +138,7 @@ watch(
   () => contractInstance.value,
   async (val) => {
     if (val) {
-      isReady.value = false;
       await loadLotti();
-      isReady.value = true;
     }
   },
   { immediate: true }
@@ -216,13 +146,6 @@ watch(
 </script>
 
 <style scoped>
-:global(html),
-:global(body) {
-  margin: 0;
-  padding: 0;
-  overflow-y: auto !important;
-  height: auto !important;
-}
 .user-status-bar {
   background: #333;
   color: #fff;
@@ -231,24 +154,20 @@ watch(
   margin-bottom: 20px;
   text-align: center;
   font-size: 0.9rem;
-  margin-right: -10px;
-  margin-left: -10px;
 }
+
 .producer-page-wrapper {
   width: 100%;
   background-color: var(--color-bg);
 }
+
 .dashboard-main {
   max-width: 1200px;
   margin: 5px auto 0;
   padding: 0 20px 100px;
   position: relative;
 }
-.creation-grid {
-  display: flex;
-  gap: 25px;
-  flex-wrap: wrap;
-}
+
 .card-title {
   display: flex;
   align-items: center;
@@ -258,12 +177,13 @@ watch(
   border-bottom: 2px solid var(--color-grigio-chiaro);
   padding-bottom: 15px;
 }
+
 .card-title h2 {
   margin: 0;
-  text-align: center;
   font-size: 1.8rem;
   color: var(--color-text-dark);
 }
+
 .loading-overlay {
   text-align: center;
   padding: 12px;
@@ -273,17 +193,5 @@ watch(
   border-radius: 8px;
   margin-bottom: 20px;
   font-weight: bold;
-  animation: pulse 2s infinite;
-}
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-  100% {
-    opacity: 1;
-  }
 }
 </style>

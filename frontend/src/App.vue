@@ -1,70 +1,122 @@
-<!-- src/App.vue -->
 <template>
-  <AppHeader />
-  <transition name="fade">
-    <router-view />
-  </transition>
+  <div id="app">
+    <transition name="fade">
+      <SplashScreen v-if="loading" />
+    </transition>
+
+    <div v-if="!loading" class="app-content">
+      <AppHeader />
+      <main class="container">
+        <router-view />
+      </main>
+    </div>
+  </div>
 </template>
 
 <script setup>
 import { ref, onMounted, provide } from "vue";
 import { useRouter } from "vue-router";
-import AppHeader from "./components/AppHeader.vue";
 import Web3 from "web3";
-import WineProduction from "./abis/WineProduction.json";
-import { useUserStore } from './stores/user'
 
+import AppHeader from "./components/AppHeader.vue";
+import SplashScreen from "./views/SplashView.vue";
+import WineProductionJSON from "./abis/WineProduction.json";
+import { useUserStore } from "./stores/user";
 
 const router = useRouter();
+const userStore = useUserStore();
 
-const account = ref("");
-const role = ref("");
+const loading = ref(true);
 const contract = ref(null);
-let web3;
 
-const userStore = useUserStore()
-
-provide("userAddress", account);
-provide("userRole", role);
 provide("contractInstance", contract);
 
-//TODO: fare chiamata a contratto per ottenere ruolo reale
-const getUserRole = async () => {
-  return "admin";
+/**
+ * Recupera il ruolo dell'utente dal contratto
+ * Se non è assegnato ritorna "VISITATORE"
+ */
+const getUserRole = async (address) => {
+  if (!contract.value) return "VISITATORE";
+
+  try {
+    const roleHash = await contract.value.methods.roles(address).call();
+
+    if (
+      roleHash ===
+      "0x0000000000000000000000000000000000000000000000000000000000000000"
+    ) {
+      return "VISITATORE";
+    }
+
+    const rolesMap = {
+      [Web3.utils.keccak256("ADMIN")]: "ADMIN",
+      [Web3.utils.keccak256("AGRICOLTORE")]: "AGRICOLTORE",
+      [Web3.utils.keccak256("SUPERVISORE")]: "SUPERVISORE",
+      [Web3.utils.keccak256("CANTINIERE")]: "CANTINIERE",
+      [Web3.utils.keccak256("CORRIERE")]: "CORRIERE",
+      [Web3.utils.keccak256("DISTRIBUTORE")]: "DISTRIBUTORE",
+    };
+
+    return rolesMap[roleHash] || "VISITATORE";
+  } catch (err) {
+    console.error("Errore lettura ruolo:", err);
+    return "VISITATORE";
+  }
 };
 
+/**
+ * MOCK — in futuro verrà sostituita con chiamata on-chain
+ */
+const getUserRole_MOCK = async (address) => {
+  // TODO:
+  // const roleHash = await contract.value.methods.roles(address).call();
+  // return decodeRole(roleHash);
+  return "ADMIN";
+}
+
 onMounted(async () => {
+  console.log("Vinum Veritas — Avvio dApp");
+
+  if (!window.ethereum) {
+    alert("MetaMask non rilevato. Installa l'estensione.");
+    return;
+  }
+
+  window.ethereum.on("accountsChanged", () => window.location.reload());
+  window.ethereum.on("chainChanged", () => window.location.reload());
+
   try {
     const web3 = new Web3(window.ethereum);
-
     const accounts = await window.ethereum.request({
       method: "eth_requestAccounts",
     });
-    account.value = accounts[0];
+    if (!accounts.length) return;
+
+    const account = accounts[0];
 
     const networkId = await web3.eth.net.getId();
-    const deployed = WineProduction.networks[networkId];
+    const deployed = WineProductionJSON.networks[networkId];
+    if (!deployed) throw new Error("Contratto non trovato sulla rete corrente");
 
     contract.value = new web3.eth.Contract(
-      WineProduction.abi,
+      WineProductionJSON.abi,
       deployed.address
     );
 
-    role.value = await getUserRole();
-
-    userStore.account = account.value
-    userStore.role = role.value
+    // Recupero ruolo reale dal contratto
+    const role = await getUserRole_MOCK(account);
+    userStore.setUser(account, role);
 
     setTimeout(() => {
-      if (role.value === "admin") {
-        router.replace("/producer");
-      } else {
-        router.replace("/update");
-      }
-    }, 1000);
+      loading.value = false;
+
+      if (userStore.isAdmin) router.replace("/producer");
+      else if (userStore.isVisitatore) router.replace("/search");
+      else router.replace("/update");
+    }, 1200);
   } catch (err) {
-    console.error("Errore durante inizializzazione:", err);
-    alert("Errore inizializzazione applicazione");
+    console.error("Errore inizializzazione:", err);
+    alert("Errore di connessione alla Blockchain");
   }
 });
 </script>

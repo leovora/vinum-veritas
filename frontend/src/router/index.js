@@ -5,7 +5,7 @@ import SplashView from '../views/SplashView.vue'
 import ProducerView from '../views/ProducerView.vue'
 import RolesView from '../views/RolesView.vue'
 import SearchView from '../views/SearchView.vue'
-import SupervisorView from '../views/SupervisorView.vue'
+import SupervisorView from '../views/UpdateProcessView.vue'
 import HistoryView from '../views/HistoryView.vue'
 
 const routes = [
@@ -18,31 +18,31 @@ const routes = [
     path: '/producer',
     name: 'Producer',
     component: ProducerView,
-    meta: { roles: ['admin'] } 
+    meta: { roles: ['ADMIN'] } 
   },
   {
     path: '/update',
     name: 'Update',
     component: SupervisorView,
-    meta: { roles: ['supervisor', 'admin'] }
+    meta: { roles: ['AGRICOLTORE', 'SUPERVISORE', 'CANTINIERE', 'CORRIERE', 'DISTRIBUTORE'] } 
   },
   {
     path: '/history',
     name: 'History',
     component: HistoryView,
-    meta: { roles: ['admin', 'supervisor'] }
+    meta: { roles: ['ADMIN', 'AGRICOLTORE', 'SUPERVISORE', 'CANTINIERE', 'CORRIERE', 'DISTRIBUTORE'] } 
   },
   {
     path: '/search',
     name: 'Search',
     component: SearchView,
-    meta: { roles: ['admin', 'supervisor'] }
+    meta: { roles: ['ADMIN', 'AGRICOLTORE', 'SUPERVISORE', 'CANTINIERE', 'CORRIERE', 'DISTRIBUTORE', 'VISITATORE'] } 
   },
   {
     path: '/roles',
     name: 'Roles',
     component: RolesView,
-    meta: { roles: ['admin'] }
+    meta: { roles: ['ADMIN'] }
   },
   {
     path: '/:pathMatch(.*)*',
