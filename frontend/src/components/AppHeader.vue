@@ -47,27 +47,27 @@ const menuLinks = [
   {
     label: "Crea processi",
     to: "/producer",
-    roles: ["admin"],
+    roles: ['ADMIN'],
   },
   {
     label: "Processi attivi",
     to: "/update",
-    roles: ["supervisor"],
+    roles: ['AGRICOLTORE', 'SUPERVISORE', 'CANTINIERE', 'CORRIERE', 'DISTRIBUTORE'],
   },
   {
     label: "Ricerca",
     to: "/search",
-    roles: ["supervisor", "admin"],
+    roles: ['ADMIN', 'AGRICOLTORE', 'SUPERVISORE', 'CANTINIERE', 'CORRIERE', 'DISTRIBUTORE', 'VISITATORE'],
   },
   {
     label: "Storico",
     to: "/history",
-    roles: ["supervisor", "admin"],
+    roles: ['ADMIN', 'AGRICOLTORE', 'SUPERVISORE', 'CANTINIERE', 'CORRIERE', 'DISTRIBUTORE'],
   },
   {
     label: "Assegna Ruoli",
     to: "/roles",
-    roles: ["admin"],
+    roles: ["ADMIN"],
   },
 ];
 

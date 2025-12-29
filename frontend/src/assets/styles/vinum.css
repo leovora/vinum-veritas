@@ -28,7 +28,7 @@
   --color-bg: #f8f9fa;
   --color-overlay: rgba(0,0,0,0.3);
   --color-overlay-giallo: rgba(215, 193, 45, 0.3);
-  --color-overlay-rosso: rgba(205, 56, 56, 0.3);
+  --color-overlay-rosso: hsla(0, 43%, 43%, 0.3);
   --color-overlay-rosa: rgb(255, 210, 244);
 
   /* FONT E DIMENSIONI */
@@ -37,7 +37,7 @@
   --font-weight-bold: 900;
   --font-weight-normal: 500;
 
-  --header-padding: 80px 0;
+  --header-padding: 50px 0;
   --header-box-shadow: 0 4px 15px rgba(0,0,0,0.2);
   --dropdown-width: 350px;
   --dropdown-top: 100px;

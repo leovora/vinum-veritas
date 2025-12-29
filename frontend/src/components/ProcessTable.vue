@@ -12,7 +12,7 @@
       <tbody>
         <tr v-if="lotti.length === 0">
           <td colspan="4" class="empty-msg">
-            Nessun lotto creato. Usa il pannello sopra per iniziare.
+            Nessun lotto presente.
           </td>
         </tr>
         <tr v-for="lotto in lotti" :key="lotto.id">

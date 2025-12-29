@@ -3,13 +3,15 @@
     <thead class="table-header">
       <tr>
         <th>Address</th>
+        <th>Nome</th>
         <th>Ruolo</th>
-        <th class="actions"/>
+        <th class="actions" />
       </tr>
     </thead>
     <tbody>
       <tr v-for="user in users" :key="user.address">
         <td class="mono">{{ user.address }}</td>
+        <td>{{ user.name || "-" }}</td>
         <td>
           <span class="role-badge">
             {{ getRoleLabel(user.role) }}

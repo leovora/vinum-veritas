@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract WineProduction {
-    // Definizione Ruoli (Hash per risparmiare gas)
+    // Definizione Ruoli (Hash)
     bytes32 public constant ADMIN = keccak256("ADMIN");
     bytes32 public constant AGRICOLTORE = keccak256("AGRICOLTORE");
     bytes32 public constant SUPERVISORE = keccak256("SUPERVISORE");
@@ -10,39 +10,69 @@ contract WineProduction {
     bytes32 public constant CORRIERE = keccak256("CORRIERE");
     bytes32 public constant DISTRIBUTORE = keccak256("DISTRIBUTORE");
 
-    enum Stato { Creato, Vendemmiato, Fermentato, Affinato, Imbottigliato, Distribuito }
+    // L'Enum deve essere definito PRIMA dello Struct che lo usa
+    enum Stato { 
+        Creato,         // 0
+        Vendemmiato,    // 1
+        Fermentato,     // 2
+        Affinato,       // 3
+        Imbottigliato,  // 4
+        Distribuito,    // 5
+        Completato      // 6
+    }
     
     struct Lotto {
         uint256 id;
         string tipo;
         Stato stato;
-        address creatore;
+        address agricoltore;
+        address supervisore;
+        address cantiniere;
+        address corriere;
+        address distributore;
+    }
+
+    struct User {
+        string name;
+        string role;
+        bool isActive;
     }
     
     mapping(address => bytes32) public roles;
+    mapping(address => User) public users;
+    address[] public userAddresses;
     Lotto[] public lotti;
     uint256 public nextId = 1;
 
     constructor() {
-    // Chi fa il deploy diventa automaticamente ADMIN
-    roles[msg.sender] = keccak256(abi.encodePacked("ADMIN"));
-}
+        // Chi fa il deploy diventa ADMIN
+        roles[msg.sender] = ADMIN;
+    }
 
-    // Solo l'Admin può creare lotti
-    function creaLotto(string memory _tipo) public {
-        require(roles[msg.sender] == ADMIN, "Solo l'Admin puo creare lotti");
-        lotti.push(Lotto(nextId, _tipo, Stato.Creato, msg.sender));
+    // Crea Lotto con tutta la filiera assegnata
+    function creaLotto(
+        string memory _tipo, 
+        address _agricoltore,
+        address _supervisore,
+        address _cantiniere,
+        address _corriere,
+        address _distributore
+    ) public {
+        require(roles[msg.sender] == ADMIN, "Solo Admin");
+        
+        lotti.push(Lotto({
+            id: nextId,
+            tipo: _tipo,
+            stato: Stato.Creato,
+            agricoltore: _agricoltore,
+            supervisore: _supervisore,
+            cantiniere: _cantiniere,
+            corriere: _corriere,
+            distributore: _distributore
+        }));
+        
         nextId++;
     }
-    function eliminaLotto(uint256 _index) public {
-    require(roles[msg.sender] == keccak256("ADMIN"), "Solo l'Admin puo eliminare");
-    require(_index < lotti.length, "Indice non valido");
-
-    // Sposta l'ultimo elemento al posto di quello da eliminare e accorcia l'array
-    // (Tecnica standard Solidity per eliminare da array dinamici)
-    lotti[_index] = lotti[lotti.length - 1];
-    lotti.pop();
-}
 
     function avanzaStato(uint256 _index) public {
         require(_index < lotti.length, "Lotto inesistente");
@@ -51,33 +81,58 @@ contract WineProduction {
         bytes32 userRole = roles[msg.sender];
 
         if (attuale == Stato.Creato) {
-            require(userRole == AGRICOLTORE, "Solo l'Agricoltore conferma la Vendemmia");
+            require(userRole == AGRICOLTORE && msg.sender == lotto.agricoltore, "Solo l'Agricoltore assegnato");
         } 
         else if (attuale == Stato.Vendemmiato) {
-            require(userRole == SUPERVISORE, "Solo il Supervisore conferma la Fermentazione");
+            require(userRole == SUPERVISORE && msg.sender == lotto.supervisore, "Solo il Supervisore assegnato (Fermentazione)");
         }
         else if (attuale == Stato.Fermentato) {
-            require(userRole == SUPERVISORE, "Solo il Supervisore conferma l'Affinamento");
+            require(userRole == SUPERVISORE && msg.sender == lotto.supervisore, "Solo il Supervisore assegnato (Affinamento)");
         }
         else if (attuale == Stato.Affinato) {
-            require(userRole == CANTINIERE, "Solo il Cantiniere conferma l'Imbottigliamento");
+            require(userRole == CANTINIERE && msg.sender == lotto.cantiniere, "Solo il Cantiniere assegnato");
         }
         else if (attuale == Stato.Imbottigliato) {
-            require(userRole == CORRIERE, "Solo il Corriere gestisce la Distribuzione");
+            require(userRole == CORRIERE && msg.sender == lotto.corriere, "Solo il Corriere assegnato");
         }
         else if (attuale == Stato.Distribuito) {
-            revert("Ciclo completato");
+            require(userRole == DISTRIBUTORE && msg.sender == lotto.distributore, "Solo il Distributore assegnato");
+        }
+        else {
+            revert("Ciclo gia completato o stato non gestito");
         }
 
         lotto.stato = Stato(uint(lotto.stato) + 1);
     }
 
-    function assignRole(address _user, bytes32 _role) public {
-        require(roles[msg.sender] == ADMIN, "Solo Admin puo assegnare ruoli");
-        roles[_user] = _role;
+    function addUser(address _user, string memory _name, string memory _roleName) public {
+        require(roles[msg.sender] == ADMIN, "Solo Admin");
+        
+        // Assegna il ruolo basato sulla stringa ricevuta
+        bytes32 roleHash = keccak256(abi.encodePacked(_roleName));
+        roles[_user] = roleHash;
+        
+        users[_user] = User(_name, _roleName, true);
+        
+        bool exists = false;
+        for(uint i=0; i < userAddresses.length; i++) {
+            if(userAddresses[i] == _user) { exists = true; break; }
+        }
+        if(!exists) userAddresses.push(_user);
+    }
+
+    function eliminaLotto(uint256 _index) public {
+        require(roles[msg.sender] == ADMIN, "Solo Admin");
+        require(_index < lotti.length, "Indice non valido");
+        lotti[_index] = lotti[lotti.length - 1];
+        lotti.pop();
     }
 
     function getLotti() public view returns (Lotto[] memory) {
         return lotti;
+    }
+
+    function getAllUserAddresses() public view returns (address[] memory) {
+        return userAddresses;
     }
 }
