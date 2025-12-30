@@ -6,7 +6,7 @@ export const useUserStore = defineStore("user", {
   // =========================
   state: () => ({
     account: null,       
-    role: null,          
+    role: null, 
     initialized: false,  
   }),
 
@@ -34,7 +34,7 @@ export const useUserStore = defineStore("user", {
   actions: {
     setUser(account, role) {
       this.account = account;
-      this.role = role;
+      this.role = role || "VISITATORE";
       this.initialized = true;
     },
 
@@ -42,10 +42,19 @@ export const useUserStore = defineStore("user", {
       this.role = role;
     },
 
-    reset() {
+   
+    logout() {
       this.account = null;
-      this.role = null;
+      this.role = "VISITATORE";
       this.initialized = false;
+      
+      // Se avevi salvato qualcosa nel localStorage per persistere la sessione:
+      // localStorage.removeItem('user_account');
+      
+      console.log("Store resettato: Logout effettuato.");
     },
+    reset() {
+      this.logout();
+    }
   },
 });

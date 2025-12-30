@@ -36,8 +36,10 @@
 <script setup>
 import { ref, computed } from "vue";
 import { useUserStore } from '../stores/user'
+import { useRouter } from 'vue-router' 
 
 const userStore = useUserStore()
+const router = useRouter()
 
 const isMenuOpen = ref(false);
 const toggleMenu = () => (isMenuOpen.value = !isMenuOpen.value);
@@ -74,6 +76,18 @@ const menuLinks = [
 const visibleLinks = computed(() =>
   menuLinks.filter((link) => link.roles.includes(userStore.role))
 );
+
+const logout = () => {
+  // 1. Pulisce i dati nel Pinia Store
+  userStore.logout(); 
+
+  // 2. Chiude il menu a tendina
+  closeMenu();
+
+  // 3. Reindirizza l'utente alla SplashScreen o alla Home
+  router.push("/");
+
+};
 </script>
 
 <style scoped>

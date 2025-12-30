@@ -66,11 +66,14 @@
               <button @click="avanza(lotto)" :disabled="lotto.stato !== 'distribuito' || userRole !== 'DISTRIBUTORE'" class="btn-step">
                 🏢 Conferma Ricezione
               </button>
-
-            </div>
-            <button v-if="userRole === 'ADMIN'" @click="$emit('elimina', lotto)" class="btn-delete">
+              <button v-if="userRole === 'ADMIN'" @click="$emit('elimina', lotto)" class="btn-delete">
                 🗑️ Elimina
               </button>
+              <button @click="$router.push({ path: '/search', query: { id: lotto.blockchainIndex } })">
+              🔍 Ispeziona
+            </button>
+            </div>
+            
           </td>
         </tr>
       </tbody>
