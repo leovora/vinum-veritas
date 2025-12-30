@@ -28,7 +28,7 @@
   --color-bg: #f8f9fa;
   --color-overlay: rgba(0,0,0,0.3);
   --color-overlay-giallo: rgba(215, 193, 45, 0.3);
-  --color-overlay-rosso: rgba(205, 56, 56, 0.3);
+  --color-overlay-rosso: hsla(0, 43%, 43%, 0.3);
   --color-overlay-rosa: rgb(255, 210, 244);
 
   /* FONT E DIMENSIONI */

@@ -2,33 +2,33 @@
   <div class="producer-page-wrapper">
     <main class="dashboard-main">
 
-      <!-- SEZIONE CREAZIONE RUOLO -->
       <section class="card">
         <div class="card-title">
           <h2>Gestione ruoli utenti</h2>
         </div>
 
         <p class="subtitle">
-          Inserisci un address Ethereum e assegna il ruolo corrispondente.
+          Inserisci un address Ethereum, il nome e assegna il ruolo corrispondente.
         </p>
 
         <RolesForm
           :available-roles="availableRoles"
-          @assign="assignRole"
+          @assign="handleRegisterUser"
         />
       </section>
 
-      <!-- SEZIONE LISTA UTENTI -->
-      <section class="card" v-if="users.length">
+      <section class="card">
         <div class="card-title">
           <h2>Utenti Registrati</h2>
         </div>
-
+        
         <UsersTable
-          :users="users"
+          v-if="displayUsers.length > 0"
+          :users="displayUsers"
           :available-roles="availableRoles"
           @remove="removeUser"
         />
+        <p v-else class="empty-msg">Nessun utente registrato nella rubrica blockchain.</p>
       </section>
 
     </main>
@@ -36,24 +36,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject, computed } from "vue";
+import { inject, computed, ref, onMounted } from "vue";
 import { useUserStore } from "../stores/user";
-
 import RolesForm from "../components/RolesForm.vue";
 import UsersTable from "../components/UsersTable.vue";
 
-/* =========================
-   STORE & CONTRACT
-========================= */
 const userStore = useUserStore();
 const contractInstance = inject("contractInstance");
+const registeredUsers = inject("registeredUsers", ref([])); 
+const refreshUsers = inject("refreshUsers"); 
+
+// LISTA LOCALE DI APPOGGIO
+const localUsers = ref([]);
 
 const adminAddress = computed(() => userStore.account);
 const adminRole = computed(() => userStore.role);
 
-/* =========================
-   RUOLI DISPONIBILI
-========================= */
 const availableRoles = [
   { value: "ADMIN", label: "Amministratore" },
   { value: "AGRICOLTORE", label: "Produttore" },
@@ -63,64 +61,49 @@ const availableRoles = [
   { value: "DISTRIBUTORE", label: "Distributore" },
 ];
 
-/* =========================
-   UTENTI
-========================= */
-const users = ref([]);
+// Uniamo i dati della blockchain con quelli appena aggiunti localmente
+const displayUsers = computed(() => {
+  // Se la blockchain ha dati, usa quelli. Se è vuota (es. dopo reset), usa la lista locale.
+  return registeredUsers.value.length > 0 ? registeredUsers.value : localUsers.value;
+});
 
-/* =========================
-   ASSIGN ROLE (ON-CHAIN)
-========================= */
-const assignRole = async ({ address, role, name }) => {
+const handleRegisterUser = async ({ address, role, name }) => {
   if (adminRole.value !== "ADMIN") {
-    alert("Solo un ADMIN può assegnare ruoli");
+    alert("Solo un ADMIN può registrare utenti");
     return;
   }
 
   try {
+    console.log(`Registrazione di: ${name}...`);
+
+    // 1. SALVATAGGIO BLOCKCHAIN
     await contractInstance.value.methods
-      .assignRole(address, role)
+      .addUser(address, name, role)
       .send({ from: adminAddress.value });
 
-    const existing = users.value.find(u => u.address === address);
-    if (existing) {
-      existing.role = role;
-      existing.name = name;
-    } else {
-      users.value.push({ address, role, name });
-    }
+    // 2. AGGIORNAMENTO LOCALE IMMEDIATO (così vedi subito la riga)
+    const newUser = { address, name, role };
+    localUsers.value.push(newUser);
 
-    alert("Ruolo assegnato correttamente");
+    // 3. AGGIORNAMENTO GLOBALE
+    if (refreshUsers) await refreshUsers();
+
+    alert(`Utente ${name} registrato con successo!`);
   } catch (err) {
-    console.error("Errore assignRole:", err);
-    alert("Errore blockchain (vedi console)");
+    console.error("Errore registrazione:", err);
+    alert("Errore transazione blockchain.");
   }
 };
 
-/* =========================
-   REMOVE USER (UI ONLY)
-========================= */
 const removeUser = (address) => {
-  users.value = users.value.filter((u) => u.address !== address);
+  localUsers.value = localUsers.value.filter(u => u.address !== address);
 };
 
-/* =========================
-   INIT
-========================= */
 onMounted(() => {
-  // MOCK TEMPORANEO
-  // ideale: caricarli dal contratto (eventi RoleAssigned)
-  users.value = [
-    {
-      address: "0xFA55b1f74E6548B0a44822d7f589f3BA51015388",
-      role: "AGRICOLTORE",
-      name: "Giorgione"
-    },
-    {
-      address: "0x832e2D1C32baFB201842B24Ea12e7B03e2Ca1965",
-      role: "CORRIERE",
-      name: "Bartolini"
-    },
+  // Carichiamo i mock iniziali solo se la blockchain è vuota
+  localUsers.value = [
+    { address: "0xFA55b1f74E6548B0a44822d7f589f3BA51015388", role: "AGRICOLTORE", name: "Giorgione" },
+    { address: "0x832e2D1C32baFB201842B24Ea12e7B03e2Ca1965", role: "CORRIERE", name: "Bartolini" },
   ];
 });
 </script>
@@ -133,32 +116,44 @@ onMounted(() => {
 
 .dashboard-main {
   max-width: 1200px;
-  margin: -40px auto 0;
+  margin: 10px auto 0;
   padding: 0 20px 100px;
-  position: relative;
 }
 
-/* titolo sezione */
+.card {
+  background: white;
+  border-radius: 15px;
+  padding: 30px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+
 .card-title {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 15px;
   margin-bottom: 25px;
-  border-bottom: 2px solid var(--color-grigio-chiaro);
+  border-bottom: 2px solid #eee;
   padding-bottom: 15px;
 }
 
 .card-title h2 {
   margin: 0;
-  text-align: center;
   font-size: 1.8rem;
   color: var(--color-text-dark);
 }
 
 .subtitle {
   text-align: center;
-  color: var(--color-text-dark);
+  color: #666;
   margin-bottom: 30px;
+}
+
+.empty-msg {
+  text-align: center;
+  color: #999;
+  font-style: italic;
+  padding: 20px;
 }
 </style>

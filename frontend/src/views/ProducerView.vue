@@ -1,52 +1,38 @@
 <template>
   <div class="producer-page-wrapper">
     <UserStatusBar :role="userRole" />
+
     <main class="dashboard-main">
+      
       <section v-if="userRole === 'ADMIN'" class="card creation-section">
-        <div class="card-title"><h2>Configurazione Nuova Produzione</h2></div>
+        <div class="card-title">
+          <h2>Configurazione Nuova Produzione</h2>
+        </div>
+        
         <div class="creation-grid">
-          <CreationCard
-            lineaText="Rosso"
-            linea="rosso"
-            btnClass="btn-rosso"
-            :onCreate="creaLotti"
-          />
-          <CreationCard
-            lineaText="Bianco"
-            linea="bianco"
-            btnClass="btn-bianco"
-            :onCreate="creaLotti"
-          />
-          <CreationCard
-            lineaText="Rosè"
-            linea="rose"
-            btnClass="btn-rose"
-            :onCreate="creaLotti"
-          />
+          <CreationCard lineaText="Rosso" linea="rosso" btnClass="btn-rosso" :onCreate="creaLotti" />
+          <CreationCard lineaText="Bianco" linea="bianco" btnClass="btn-bianco" :onCreate="creaLotti" />
+          <CreationCard lineaText="Rosè" linea="rose" btnClass="btn-rose" :onCreate="creaLotti" />
         </div>
       </section>
 
       <section class="card processes-section">
         <div class="card-title">
           <h2>
-            {{
-              userRole === "ADMIN"
-                ? "Tutti i Processi Blockchain"
-                : "Le Mie Attività"
-            }}
+            {{ userRole === 'ADMIN' ? 'Gestione Processi Blockchain' : 'Stato Globale Filiera' }}
           </h2>
         </div>
 
         <div v-if="loading" class="loading-overlay">
-          Comunicazione con Blockchain in corso... Conferma su MetaMask.
+          Comunicazione con Blockchain in corso...
         </div>
 
         <ProcessTable
-          :lotti="filteredLotti"
-          :userRole="userRole"
+          :lotti="lotti"
+          :userRole="userRole === 'ADMIN' ? 'ADMIN' : 'VISITATORE'"
           :getStatusLabel="getStatusLabel"
           :getProgressWidth="getProgressWidth"
-          :avanza="avanzaStato"
+          :avanza="userRole === 'ADMIN' ? avanzaStato : null"
           @elimina="handleEliminaLotto"
         />
       </section>
@@ -57,7 +43,6 @@
 <script setup>
 import { ref, watch, computed, inject } from "vue";
 import { useUserStore } from "../stores/user";
-
 import CreationCard from "../components/CreationCard.vue";
 import ProcessTable from "../components/ProcessTable.vue";
 import UserStatusBar from "../components/UserStatusBar.vue";
@@ -67,117 +52,63 @@ const contractInstance = inject("contractInstance");
 
 const lotti = ref([]);
 const loading = ref(false);
-const isReady = ref(false);
 
-/* =========================
-   RUOLO E ACCOUNT (STORE)
-========================= */
-const userRole = computed(() => userStore.role);
+const userRole = computed(() => userStore.role?.toUpperCase());
 const userAddress = computed(() => userStore.account);
 
 /* =========================
-   FILTRI LOTTI
+   In ProducerView vogliamo vedere TUTTO il registro.
+   Il filtraggio per competenza avviene nella UpdateProcessView di Leo.
 ========================= */
-const filteredLotti = computed(() => {
-  if (userRole.value === "ADMIN") return lotti.value;
 
-  return lotti.value.filter((lotto) => {
-    switch (userRole.value) {
-      case "AGRICOLTORE":
-        return lotto.stato === "creato";
-      case "SUPERVISORE":
-        return ["vendemmiato", "fermentato"].includes(lotto.stato);
-      case "CANTINIERE":
-        return lotto.stato === "affinato";
-      case "CORRIERE":
-        return lotto.stato === "imbottigliato";
-      case "DISTRIBUTORE":
-        return lotto.stato === "distribuito";
-      default:
-        return false;
-    }
-  });
-});
+const getStatusLabel = (stato) => ({
+  creato: "In Attesa di vendemmia", vendemmiato: "Vendemmiato", fermentato: "Fermentato",
+  affinato: "Affinato", imbottigliato: "Imbottigliato", distribuito: "Distribuito",
+}[stato] || "Finito");
+
+const getProgressWidth = (stato) => ({
+  creato: "16%", vendemmiato: "32%", fermentato: "48%",
+  affinato: "64%", imbottigliato: "80%", distribuito: "100%",
+}[stato] || "0%");
 
 /* =========================
-   UI HELPERS
-========================= */
-const getStatusLabel = (stato) =>
-  ({
-    creato: "In Attesa",
-    vendemmiato: "Vendemmiato",
-    fermentato: "Fermentato",
-    affinato: "Affinamento",
-    imbottigliato: "Imbottigliato",
-    distribuito: "Distribuito",
-  }[stato] || "Sconosciuto");
-
-const getProgressWidth = (stato) =>
-  ({
-    creato: "16%",
-    vendemmiato: "32%",
-    fermentato: "48%",
-    affinato: "64%",
-    imbottigliato: "80%",
-    distribuito: "100%",
-  }[stato] || "0%");
-
-/* =========================
-   LOAD LOTTI
+   BLOCKCHAIN ACTIONS
 ========================= */
 const loadLotti = async () => {
   if (!contractInstance.value) return;
-
   try {
     const data = await contractInstance.value.methods.getLotti().call();
     lotti.value = data.map((l, index) => ({
       blockchainIndex: index,
       id: l.id.toString(),
       tipo: l.tipo,
-      stato: [
-        "creato",
-        "vendemmiato",
-        "fermentato",
-        "affinato",
-        "imbottigliato",
-        "distribuito",
-      ][Number(l.stato)],
+      stato: ["creato", "vendemmiato", "fermentato", "affinato", "imbottigliato", "distribuito"][Number(l.stato)],
     }));
-  } catch (err) {
-    console.error("Errore caricamento lotti:", err);
-  }
+  } catch (err) { console.error("Errore caricamento:", err); }
 };
 
-/* =========================
-   AZIONI
-========================= */
-const creaLotti = async (tipo, quantita) => {
-  if (!contractInstance.value) return;
-
+const creaLotti = async (tipo, quantita, selections) => {
+  if (userRole.value !== 'ADMIN') return;
+  
   loading.value = true;
   try {
     for (let i = 0; i < quantita; i++) {
       await contractInstance.value.methods
-        .creaLotto(tipo)
+        .creaLotto(
+          tipo, 
+          selections.AGRICOLTORE,
+          selections.SUPERVISORE,
+          selections.CANTINIERE,
+          selections.CORRIERE,
+          selections.DISTRIBUTORE
+        )
         .send({ from: userAddress.value });
     }
     await loadLotti();
-  } finally {
-    loading.value = false;
-  }
-};
-
-const avanzaStato = async (lotto) => {
-  if (!contractInstance.value) return;
-
-  loading.value = true;
-  try {
-    await contractInstance.value.methods
-      .avanzaStato(lotto.blockchainIndex)
-      .send({ from: userAddress.value });
-    await loadLotti();
-  } catch {
-    alert("Azione non permessa");
+    alert("Produzione avviata con successo!");
+  } catch (err) {
+    console.error("Errore dettagliato:", err);
+    alert("Errore Blockchain: verifica i parametri o resetta MetaMask.");
   } finally {
     loading.value = false;
   }
@@ -185,34 +116,29 @@ const avanzaStato = async (lotto) => {
 
 const handleEliminaLotto = async (lotto) => {
   if (userRole.value !== "ADMIN") return;
-
-  if (!confirm("Eliminare definitivamente il lotto?")) return;
-
+  if (!confirm("Sei sicuro? L'azione è irreversibile sulla blockchain.")) return;
   loading.value = true;
   try {
-    await contractInstance.value.methods
-      .eliminaLotto(lotto.blockchainIndex)
-      .send({ from: userAddress.value });
+    await contractInstance.value.methods.eliminaLotto(lotto.blockchainIndex).send({ from: userAddress.value });
     await loadLotti();
-  } finally {
-    loading.value = false;
-  }
+  } finally { loading.value = false; }
 };
 
-/* =========================
-   INIT
-========================= */
-watch(
-  () => contractInstance.value,
-  async (val) => {
-    if (val) {
-      isReady.value = false;
-      await loadLotti();
-      isReady.value = true;
-    }
-  },
-  { immediate: true }
-);
+// Funzione lasciata solo per l'Admin che vuole forzare test
+const avanzaStato = async (lotto) => {
+  if (userRole.value !== 'ADMIN') return;
+  loading.value = true;
+  try {
+    await contractInstance.value.methods.avanzaStato(lotto.blockchainIndex).send({ from: userAddress.value });
+    await loadLotti();
+  } catch { alert("Errore durante l'avanzamento"); }
+  finally { loading.value = false; }
+};
+
+watch(() => contractInstance.value, async (val) => {
+  if (val) await loadLotti();
+}, { immediate: true });
+
 </script>
 
 <style scoped>
@@ -274,16 +200,5 @@ watch(
   margin-bottom: 20px;
   font-weight: bold;
   animation: pulse 2s infinite;
-}
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-  100% {
-    opacity: 1;
-  }
 }
 </style>
