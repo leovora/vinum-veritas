@@ -98,7 +98,7 @@ const loadLotti = async () => {
           },
         };
       })
-      .filter(l => l.statoRaw < 5); // solo lotti attivi
+      .filter(l => l.statoRaw < 6); // solo lotti attivi
   } catch (err) {
     console.error("Errore caricamento:", err);
   } finally {
@@ -107,7 +107,7 @@ const loadLotti = async () => {
 };
 
 // solo lotti attivi (non completati)
-const activeLotti = computed(() => lotti.value.filter(l => l.stato !== "distribuito"));
+const activeLotti = computed(() => lotti.value.filter(l => l.stato !== "finito"));
 
 /* =========================
    CREAZIONE LOTTI

@@ -11,16 +11,16 @@ contract WineProduction {
     bytes32 public constant DISTRIBUTORE = keccak256("DISTRIBUTORE");
 
     // L'Enum deve essere definito PRIMA dello Struct che lo usa
-    enum Stato { 
-        Creato,         // 0
-        Vendemmiato,    // 1
-        Fermentato,     // 2
-        Affinato,       // 3
-        Imbottigliato,  // 4
-        Distribuito,    // 5
-        Completato      // 6
+    enum Stato {
+        Creato, // 0
+        Vendemmiato, // 1
+        Fermentato, // 2
+        Affinato, // 3
+        Imbottigliato, // 4
+        Distribuito, // 5
+        Completato // 6
     }
-    
+
     struct Lotto {
         uint256 id;
         string tipo;
@@ -38,7 +38,7 @@ contract WineProduction {
         string role;
         bool isActive;
     }
-    
+
     mapping(address => bytes32) public roles;
     mapping(address => User) public users;
     address[] public userAddresses;
@@ -52,7 +52,7 @@ contract WineProduction {
 
     // Crea Lotto con tutta la filiera assegnata
     function creaLotto(
-        string memory _tipo, 
+        string memory _tipo,
         address _agricoltore,
         address _supervisore,
         address _cantiniere,
@@ -60,19 +60,21 @@ contract WineProduction {
         address _distributore
     ) public {
         require(roles[msg.sender] == ADMIN, "Solo Admin");
-        
-        lotti.push(Lotto({
-            id: nextId,
-            tipo: _tipo,
-            stato: Stato.Creato,
-            timestamp: block.timestamp, // <--- FIX: Assegna il tempo attuale
-            agricoltore: _agricoltore,
-            supervisore: _supervisore,
-            cantiniere: _cantiniere,
-            corriere: _corriere,
-            distributore: _distributore
-        }));
-        
+
+        lotti.push(
+            Lotto({
+                id: nextId,
+                tipo: _tipo,
+                stato: Stato.Creato,
+                timestamp: block.timestamp, // <--- FIX: Assegna il tempo attuale
+                agricoltore: _agricoltore,
+                supervisore: _supervisore,
+                cantiniere: _cantiniere,
+                corriere: _corriere,
+                distributore: _distributore
+            })
+        );
+
         nextId++;
     }
 
@@ -83,44 +85,63 @@ contract WineProduction {
         bytes32 userRole = roles[msg.sender];
 
         if (attuale == Stato.Creato) {
-            require(userRole == AGRICOLTORE && msg.sender == lotto.agricoltore, "Solo l'Agricoltore assegnato");
-        } 
-        else if (attuale == Stato.Vendemmiato) {
-            require(userRole == SUPERVISORE && msg.sender == lotto.supervisore, "Solo il Supervisore assegnato (Fermentazione)");
-        }
-        else if (attuale == Stato.Fermentato) {
-            require(userRole == SUPERVISORE && msg.sender == lotto.supervisore, "Solo il Supervisore assegnato (Affinamento)");
-        }
-        else if (attuale == Stato.Affinato) {
-            require(userRole == CANTINIERE && msg.sender == lotto.cantiniere, "Solo il Cantiniere assegnato");
-        }
-        else if (attuale == Stato.Imbottigliato) {
-            require(userRole == CORRIERE && msg.sender == lotto.corriere, "Solo il Corriere assegnato");
-        }
-        else if (attuale == Stato.Distribuito) {
-            require(userRole == DISTRIBUTORE && msg.sender == lotto.distributore, "Solo il Distributore assegnato");
-        }
-        else {
+            require(
+                userRole == AGRICOLTORE && msg.sender == lotto.agricoltore,
+                "Solo l'Agricoltore assegnato"
+            );
+        } else if (attuale == Stato.Vendemmiato) {
+            require(
+                userRole == SUPERVISORE && msg.sender == lotto.supervisore,
+                "Solo il Supervisore assegnato (Fermentazione)"
+            );
+        } else if (attuale == Stato.Fermentato) {
+            require(
+                userRole == SUPERVISORE && msg.sender == lotto.supervisore,
+                "Solo il Supervisore assegnato (Affinamento)"
+            );
+        } else if (attuale == Stato.Affinato) {
+            require(
+                userRole == CANTINIERE && msg.sender == lotto.cantiniere,
+                "Solo il Cantiniere assegnato"
+            );
+        } else if (attuale == Stato.Imbottigliato) {
+            require(
+                userRole == CORRIERE && msg.sender == lotto.corriere,
+                "Solo il Corriere assegnato"
+            );
+        } else if (attuale == Stato.Distribuito) {
+            require(
+                userRole == DISTRIBUTORE && msg.sender == lotto.distributore,
+                "Solo il Distributore assegnato"
+            );
+        } else {
             revert("Ciclo gia completato o stato non gestito");
         }
 
         lotto.stato = Stato(uint(lotto.stato) + 1);
     }
 
-    function addUser(address _user, string memory _name, string memory _roleName) public {
+    function addUser(
+        address _user,
+        string memory _name,
+        string memory _roleName
+    ) public {
         require(roles[msg.sender] == ADMIN, "Solo Admin");
-        
+
         // Assegna il ruolo basato sulla stringa ricevuta
         bytes32 roleHash = keccak256(abi.encodePacked(_roleName));
         roles[_user] = roleHash;
-        
+
         users[_user] = User(_name, _roleName, true);
-        
+
         bool exists = false;
-        for(uint i=0; i < userAddresses.length; i++) {
-            if(userAddresses[i] == _user) { exists = true; break; }
+        for (uint i = 0; i < userAddresses.length; i++) {
+            if (userAddresses[i] == _user) {
+                exists = true;
+                break;
+            }
         }
-        if(!exists) userAddresses.push(_user);
+        if (!exists) userAddresses.push(_user);
     }
 
     function eliminaLotto(uint256 _index) public {
@@ -139,16 +160,16 @@ contract WineProduction {
     }
 
     function eliminaUtente(address _user) public {
-    require(roles[msg.sender] == ADMIN, "Solo Admin");
-    require(users[_user].isActive, "Utente non esistente o gia' rimosso");
-    users[_user].isActive = false;
-    roles[_user] = 0x0;
-    for (uint i = 0; i < userAddresses.length; i++) {
-        if (userAddresses[i] == _user) {
-            userAddresses[i] = userAddresses[userAddresses.length - 1];
-            userAddresses.pop();
-            break;
+        require(roles[msg.sender] == ADMIN, "Solo Admin");
+        require(users[_user].isActive, "Utente non esistente o gia' rimosso");
+        users[_user].isActive = false;
+        roles[_user] = 0x0;
+        for (uint i = 0; i < userAddresses.length; i++) {
+            if (userAddresses[i] == _user) {
+                userAddresses[i] = userAddresses[userAddresses.length - 1];
+                userAddresses.pop();
+                break;
+            }
         }
     }
-}
 }

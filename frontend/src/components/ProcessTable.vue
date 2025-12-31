@@ -91,7 +91,7 @@
                 "
                 class="btn-step"
               >
-                🚚 Distribuzione
+                🚚 Spedizione
               </button>
 
               <button

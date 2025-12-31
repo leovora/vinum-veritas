@@ -38,7 +38,7 @@ const lotti = ref([]);
 const loading = ref(false);
 
 /* =========================
-   RUOLO E ACCOUNT (STORE)
+   RUOLO E ACCOUNT
 ========================= */
 const userRole = computed(() => userStore.role);
 const userAddress = computed(() => userStore.account);
@@ -75,35 +75,33 @@ const loadLotti = async () => {
   try {
     const data = await contractInstance.value.methods.getLotti().call();
 
-    lotti.value = data
-      .map((l, index) => {
-        const statoStr = [
-          "creato",
-          "vendemmiato",
-          "fermentato",
-          "affinato",
-          "imbottigliato",
-          "distribuito",
-        ][Number(l.stato)];
+    lotti.value = data.map((l, index) => {
+      const statoStr = [
+        "creato",
+        "vendemmiato",
+        "fermentato",
+        "affinato",
+        "imbottigliato",
+        "distribuito",
+      ][Number(l.stato)];
 
-        return {
-          blockchainIndex: index,
-          id: l.id.toString(),
-          tipo: l.tipo,
-          stato: statoStr,
-          statoRaw: Number(l.stato),
-          statusLabel: getStatusLabel(statoStr),
-          statusClass: `status-${l.stato}`,
-          actors: {
-            Agricoltore: l.agricoltore,
-            Supervisore: l.supervisore,
-            Cantiniere: l.cantiniere,
-            Corriere: l.corriere,
-            Distributore: l.distributore,
-          },
-        };
-      })
-      .filter((l) => Number(l.statoRaw) < 5); // solo lotti attivi
+      return {
+        blockchainIndex: index,
+        id: l.id.toString(),
+        tipo: l.tipo,
+        stato: statoStr,
+        statoRaw: Number(l.stato),
+        statusLabel: getStatusLabel(statoStr),
+        statusClass: `status-${l.stato}`,
+        actors: {
+          Agricoltore: l.agricoltore,
+          Supervisore: l.supervisore,
+          Cantiniere: l.cantiniere,
+          Corriere: l.corriere,
+          Distributore: l.distributore,
+        },
+      };
+    });
   } catch (err) {
     console.error("Errore caricamento lotti:", err);
   } finally {
@@ -134,7 +132,7 @@ const filteredLotti = computed(() => {
 });
 
 /* =========================
-   AZIONE: AVANZA STATO
+   AVANZAMENTO STATO LOTTO
 ========================= */
 const avanzaStato = async (lotto) => {
   if (!contractInstance.value) return;

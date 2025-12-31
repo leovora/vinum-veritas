@@ -27,24 +27,14 @@
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="(address, role, index) in lotto.actors"
-            :key="role"
-          >
-            <td class="role-cell">{{ role }}</td>
+          <tr v-for="(phase, index) in PHASES" :key="phase.name">
+            <td class="role-cell">{{ phase.name }}</td>
             <td class="address-cell">
-              {{ address !== ZERO_ADDRESS ? address : "In attesa..." }}
+              {{ lotto.actors[phase.role] !== ZERO_ADDRESS ? lotto.actors[phase.role] : "In attesa..." }}
             </td>
             <td>
-              <span
-                v-if="index < Number(lotto.statoRaw)"
-                class="check-valid"
-              >
-                ✅ Fatto
-              </span>
-              <span v-else class="check-pending">
-                ❌ Da fare
-              </span>
+              <span v-if="index < Number(lotto.statoRaw)" class="check-valid">✅ Fatto</span>
+              <span v-else class="check-pending">❌ Da fare</span>
             </td>
           </tr>
         </tbody>
@@ -62,6 +52,16 @@ defineProps({
 });
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+// Definizione fasi ordinate correttamente
+const PHASES = [
+  { name: "Vendemmia", role: "Agricoltore" },
+  { name: "Fermentazione", role: "Supervisore" },
+  { name: "Affinamento", role: "Supervisore" },
+  { name: "Imbottigliamento", role: "Cantiniere" },
+  { name: "Spedizione", role: "Corriere" },
+  { name: "Ricezione", role: "Distributore" },
+];
 </script>
 
 <style scoped>
@@ -163,5 +163,4 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
   color: #c0392b;
   font-weight: bold;
 }
-
 </style>
