@@ -137,4 +137,18 @@ contract WineProduction {
     function getAllUserAddresses() public view returns (address[] memory) {
         return userAddresses;
     }
+
+    function eliminaUtente(address _user) public {
+    require(roles[msg.sender] == ADMIN, "Solo Admin");
+    require(users[_user].isActive, "Utente non esistente o gia' rimosso");
+    users[_user].isActive = false;
+    roles[_user] = 0x0;
+    for (uint i = 0; i < userAddresses.length; i++) {
+        if (userAddresses[i] == _user) {
+            userAddresses[i] = userAddresses[userAddresses.length - 1];
+            userAddresses.pop();
+            break;
+        }
+    }
+}
 }

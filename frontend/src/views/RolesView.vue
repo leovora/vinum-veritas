@@ -95,17 +95,25 @@ const handleRegisterUser = async ({ address, role, name }) => {
   }
 };
 
-const removeUser = (address) => {
-  localUsers.value = localUsers.value.filter(u => u.address !== address);
+const removeUser = async (address) => {
+
+  try {
+    await contractInstance.value.methods
+      .eliminaUtente(address)
+      .send({ from: adminAddress.value });
+
+    localUsers.value = localUsers.value.filter(u => u.address !== address);
+
+    if (refreshUsers) await refreshUsers();
+
+    alert("Utente rimosso con successo!");
+  } catch (err) {
+    console.error("Errore rimozione utente:", err);
+    alert("Errore transazione blockchain.");
+  }
 };
 
-onMounted(() => {
-  // Carichiamo i mock iniziali solo se la blockchain è vuota
-  localUsers.value = [
-    { address: "0xFA55b1f74E6548B0a44822d7f589f3BA51015388", role: "AGRICOLTORE", name: "Giorgione" },
-    { address: "0x832e2D1C32baFB201842B24Ea12e7B03e2Ca1965", role: "CORRIERE", name: "Bartolini" },
-  ];
-});
+
 </script>
 
 <style scoped>

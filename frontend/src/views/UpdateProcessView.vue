@@ -1,6 +1,7 @@
 <template>
   <div class="producer-page-wrapper">
     <UserStatusBar :role="userRole" />
+
     <main class="dashboard-main">
       <section class="card processes-section">
         <div class="card-title">
@@ -12,6 +13,7 @@
         </div>
 
         <ProcessTable
+          v-else
           :lotti="filteredLotti"
           :userRole="userRole"
           :getStatusLabel="getStatusLabel"
@@ -42,28 +44,6 @@ const userRole = computed(() => userStore.role);
 const userAddress = computed(() => userStore.account);
 
 /* =========================
-   FILTRI LOTTI
-========================= */
-const filteredLotti = computed(() => {
-  return lotti.value.filter((lotto) => {
-    switch (userRole.value) {
-      case "AGRICOLTORE":
-        return lotto.stato === "creato";
-      case "SUPERVISORE":
-        return ["vendemmiato", "fermentato"].includes(lotto.stato);
-      case "CANTINIERE":
-        return lotto.stato === "affinato";
-      case "CORRIERE":
-        return lotto.stato === "imbottigliato";
-      case "DISTRIBUTORE":
-        return lotto.stato === "distribuito";
-      default:
-        return false;
-    }
-  });
-});
-
-/* =========================
    UI HELPERS
 ========================= */
 const getStatusLabel = (stato) =>
@@ -87,37 +67,77 @@ const getProgressWidth = (stato) =>
   }[stato] || "0%");
 
 /* =========================
-   LOAD LOTTI
+   LOAD LOTTI COMPLETI
 ========================= */
 const loadLotti = async () => {
   if (!contractInstance.value) return;
-
+  loading.value = true;
   try {
     const data = await contractInstance.value.methods.getLotti().call();
-    lotti.value = data.map((l, index) => ({
-      blockchainIndex: index,
-      id: l.id.toString(),
-      tipo: l.tipo,
-      stato: [
-        "creato",
-        "vendemmiato",
-        "fermentato",
-        "affinato",
-        "imbottigliato",
-        "distribuito",
-      ][Number(l.stato)],
-    }));
+
+    lotti.value = data
+      .map((l, index) => {
+        const statoStr = [
+          "creato",
+          "vendemmiato",
+          "fermentato",
+          "affinato",
+          "imbottigliato",
+          "distribuito",
+        ][Number(l.stato)];
+
+        return {
+          blockchainIndex: index,
+          id: l.id.toString(),
+          tipo: l.tipo,
+          stato: statoStr,
+          statoRaw: Number(l.stato),
+          statusLabel: getStatusLabel(statoStr),
+          statusClass: `status-${l.stato}`,
+          actors: {
+            Agricoltore: l.agricoltore,
+            Supervisore: l.supervisore,
+            Cantiniere: l.cantiniere,
+            Corriere: l.corriere,
+            Distributore: l.distributore,
+          },
+        };
+      })
+      .filter((l) => Number(l.statoRaw) < 5); // solo lotti attivi
   } catch (err) {
     console.error("Errore caricamento lotti:", err);
+  } finally {
+    loading.value = false;
   }
 };
+
+/* =========================
+   FILTRI LOTTI PER RUOLO
+========================= */
+const filteredLotti = computed(() => {
+  return lotti.value.filter((lotto) => {
+    switch (userRole.value) {
+      case "AGRICOLTORE":
+        return lotto.stato === "creato";
+      case "SUPERVISORE":
+        return ["vendemmiato", "fermentato"].includes(lotto.stato);
+      case "CANTINIERE":
+        return lotto.stato === "affinato";
+      case "CORRIERE":
+        return lotto.stato === "imbottigliato";
+      case "DISTRIBUTORE":
+        return lotto.stato === "distribuito";
+      default:
+        return true; // VISITATORE o altri ruoli vedono tutto
+    }
+  });
+});
 
 /* =========================
    AZIONE: AVANZA STATO
 ========================= */
 const avanzaStato = async (lotto) => {
   if (!contractInstance.value) return;
-
   loading.value = true;
   try {
     await contractInstance.value.methods
@@ -137,9 +157,7 @@ const avanzaStato = async (lotto) => {
 watch(
   () => contractInstance.value,
   async (val) => {
-    if (val) {
-      await loadLotti();
-    }
+    if (val) await loadLotti();
   },
   { immediate: true }
 );
