@@ -25,6 +25,7 @@ contract WineProduction {
         uint256 id;
         string tipo;
         Stato stato;
+        uint256 timestamp;
         address agricoltore;
         address supervisore;
         address cantiniere;
@@ -64,6 +65,7 @@ contract WineProduction {
             id: nextId,
             tipo: _tipo,
             stato: Stato.Creato,
+            timestamp: block.timestamp, // <--- FIX: Assegna il tempo attuale
             agricoltore: _agricoltore,
             supervisore: _supervisore,
             cantiniere: _cantiniere,

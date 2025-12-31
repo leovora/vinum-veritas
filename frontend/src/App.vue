@@ -121,8 +121,9 @@ onMounted(async () => {
 
     const account = accounts[0];
     const networkId = await web3.eth.net.getId();
+    console.log("Rete rilevata:", networkId);
     const deployed = WineProductionJSON.networks[networkId];
-    
+    console.log("Dati contratto sulla rete:", deployed);
     if (!deployed) {
       throw new Error("Contratto non trovato sulla rete corrente (hai fatto truffle migrate?)");
     }
@@ -130,6 +131,8 @@ onMounted(async () => {
     contract.value = new web3.eth.Contract(
       WineProductionJSON.abi,
       deployed.address
+
+    
     );
 
     // 1. Carichiamo subito la rubrica utenti registrati
