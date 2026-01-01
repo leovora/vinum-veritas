@@ -28,8 +28,6 @@
           v-else
           :lotti="activeLotti"
           :userRole="userRole === 'ADMIN' ? 'ADMIN' : 'VISITATORE'"
-          :getStatusLabel="getStatusLabel"
-          :getProgressWidth="getProgressWidth"
           :avanza="userRole === 'ADMIN' ? avanzaStato : null"
           @elimina="handleEliminaLotto"
         />
@@ -56,18 +54,14 @@ const userAddress = computed(() => userStore.account);
 
 /* STATUS / PROGRESS */
 const getStatusLabel = (stato) => ({
-  creato: "In Attesa di vendemmia",
+  creato: "In attesa di vendemmia",
   vendemmiato: "Vendemmiato",
   fermentato: "Fermentato",
   affinato: "Affinato",
   imbottigliato: "Imbottigliato",
-  distribuito: "Distribuito",
+  spedito: "Spedito",
+  distribuito: "Ricezione confermata",
 }[stato] || "Finito");
-
-const getProgressWidth = (stato) => ({
-  creato: "16%", vendemmiato: "32%", fermentato: "48%",
-  affinato: "64%", imbottigliato: "80%", distribuito: "100%",
-}[stato] || "0%");
 
 /* =========================
    LOAD LOTTI ATTIVI
@@ -80,7 +74,7 @@ const loadLotti = async () => {
 
     lotti.value = data
       .map((l, index) => {
-        const statoStr = ["creato","vendemmiato","fermentato","affinato","imbottigliato","distribuito"][Number(l.stato)];
+        const statoStr = ["creato","vendemmiato","fermentato","affinato","imbottigliato", "spedito", "distribuito"][Number(l.stato)];
         return {
           blockchainIndex: index,
           id: l.id.toString(),

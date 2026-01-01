@@ -16,8 +16,6 @@
           v-else
           :lotti="filteredLotti"
           :userRole="userRole"
-          :getStatusLabel="getStatusLabel"
-          :getProgressWidth="getProgressWidth"
           :avanza="avanzaStato"
         />
       </section>
@@ -48,23 +46,14 @@ const userAddress = computed(() => userStore.account);
 ========================= */
 const getStatusLabel = (stato) =>
   ({
-    creato: "In Attesa",
+    creato: "In attesa di vendemmia",
     vendemmiato: "Vendemmiato",
     fermentato: "Fermentato",
-    affinato: "Affinamento",
+    affinato: "Affinato",
     imbottigliato: "Imbottigliato",
-    distribuito: "Distribuito",
+    spedito: "Spedito",
+    distribuito: "Ricezione confermata",
   }[stato] || "Sconosciuto");
-
-const getProgressWidth = (stato) =>
-  ({
-    creato: "16%",
-    vendemmiato: "32%",
-    fermentato: "48%",
-    affinato: "64%",
-    imbottigliato: "80%",
-    distribuito: "100%",
-  }[stato] || "0%");
 
 /* =========================
    LOAD LOTTI COMPLETI
@@ -82,6 +71,7 @@ const loadLotti = async () => {
         "fermentato",
         "affinato",
         "imbottigliato",
+        "spedito",
         "distribuito",
       ][Number(l.stato)];
 
@@ -124,7 +114,7 @@ const filteredLotti = computed(() => {
       case "CORRIERE":
         return lotto.stato === "imbottigliato";
       case "DISTRIBUTORE":
-        return lotto.stato === "distribuito";
+        return lotto.stato === "spedito";
       default:
         return true; // VISITATORE o altri ruoli vedono tutto
     }

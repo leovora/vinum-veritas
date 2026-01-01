@@ -9,26 +9,21 @@
           <th>Azioni Sequenziali</th>
         </tr>
       </thead>
+
       <tbody>
         <tr v-if="lotti.length === 0">
           <td colspan="4" class="empty-msg">Nessun lotto presente.</td>
         </tr>
+
         <tr v-for="lotto in lotti" :key="lotto.id">
           <td class="id-cell">#{{ lotto.id }}</td>
+
           <td>
             <div class="type-progress-col">
-              <span
-                :class="[
-                  'badge',
-                  lotto.tipo.includes('Rosso')
-                    ? 'b-rosso'
-                    : lotto.tipo.includes('Bianco')
-                    ? 'b-bianco'
-                    : 'b-rosa',
-                ]"
-              >
+              <span :class="['badge', badgeClass(lotto.tipo)]">
                 {{ lotto.tipo }}
               </span>
+
               <div class="progress-container">
                 <div
                   class="progress-bar"
@@ -37,77 +32,29 @@
               </div>
             </div>
           </td>
+
           <td>
-            <span :class="['status-pill', lotto.stato]">{{
-              getStatusLabel(lotto.stato)
-            }}</span>
+            <span :class="['status-pill', lotto.stato]">
+              {{ getStatusLabel(lotto.stato) }}
+            </span>
           </td>
+
           <td class="actions-cell">
             <div class="btn-group">
               <button
-                @click="avanza(lotto)"
-                :disabled="
-                  lotto.stato !== 'creato' || userRole !== 'AGRICOLTORE'
-                "
+                v-for="step in STEPS"
+                :key="step.label"
                 class="btn-step"
+                :disabled="!canAdvance(step, lotto)"
+                @click="handleAdvance(lotto)"
               >
-                🍇 Vendemmia
-              </button>
-
-              <button
-                @click="avanza(lotto)"
-                :disabled="
-                  lotto.stato !== 'vendemmiato' || userRole !== 'SUPERVISORE'
-                "
-                class="btn-step"
-              >
-                🧪 Fermentazione
-              </button>
-
-              <button
-                @click="avanza(lotto)"
-                :disabled="
-                  lotto.stato !== 'fermentato' || userRole !== 'SUPERVISORE'
-                "
-                class="btn-step"
-              >
-                🏺 Affinamento
-              </button>
-
-              <button
-                @click="avanza(lotto)"
-                :disabled="
-                  lotto.stato !== 'affinato' || userRole !== 'CANTINIERE'
-                "
-                class="btn-step"
-              >
-                🍾 Imbottigliamento
-              </button>
-
-              <button
-                @click="avanza(lotto)"
-                :disabled="
-                  lotto.stato !== 'imbottigliato' || userRole !== 'CORRIERE'
-                "
-                class="btn-step"
-              >
-                🚚 Spedizione
-              </button>
-
-              <button
-                @click="avanza(lotto)"
-                :disabled="
-                  lotto.stato !== 'distribuito' || userRole !== 'DISTRIBUTORE'
-                "
-                class="btn-step"
-              >
-                🏢 Conferma Ricezione
+                {{ step.icon }} {{ step.label }}
               </button>
 
               <button
                 v-if="userRole === 'ADMIN'"
-                @click="$emit('elimina', lotto)"
                 class="btn-delete"
+                @click="$emit('elimina', lotto)"
               >
                 🗑️ Elimina
               </button>
@@ -122,17 +69,78 @@
 </template>
 
 <script setup>
-import IspezionaButton from '../components/IspezionaButton.vue';
+import IspezionaButton from "./IspezionaButton.vue";
+
+defineEmits(["elimina"]);
 
 const props = defineProps({
-  lotti: Array,
-  userRole: String,
-  getStatusLabel: Function,
-  getProgressWidth: Function,
-  avanza: Function,
+  lotti: { type: Array, required: true },
+  userRole: { type: String, required: true },
+  avanza: { type: Function, default: null },
 });
 
-defineEmits(['elimina']);
+/* =========================
+   STATO → LABEL UI
+========================= */
+const STATUS_LABELS = {
+  creato: "In attesa di vendemmia",
+  vendemmiato: "Vendemmiato",
+  fermentato: "Fermentato",
+  affinato: "Affinato",
+  imbottigliato: "Imbottigliato",
+  spedito: "Spedito",
+  distribuito: "Ricezione confermata",
+};
+
+/* =========================
+   PROGRESS
+========================= */
+const PROGRESS = {
+  creato: "14%",
+  vendemmiato: "28%",
+  fermentato: "42%",
+  affinato: "56%",
+  imbottigliato: "70%",
+  spedito: "85%",
+  distribuito: "100%",
+};
+
+/* =========================
+   STEP OPERATIVI
+========================= */
+const STEPS = [
+  { stato: "creato", role: "AGRICOLTORE", label: "Vendemmia", icon: "🍇" },
+  { stato: "vendemmiato", role: "SUPERVISORE", label: "Fermentazione", icon: "🧪" },
+  { stato: "fermentato", role: "SUPERVISORE", label: "Affinamento", icon: "🏺" },
+  { stato: "affinato", role: "CANTINIERE", label: "Imbottigliamento", icon: "🍾" },
+  { stato: "imbottigliato", role: "CORRIERE", label: "Spedizione", icon: "🚚" },
+  { stato: "spedito", role: "DISTRIBUTORE", label: "Conferma ricezione", icon: "🏢" },
+];
+
+/* =========================
+   UI HELPERS
+========================= */
+const getStatusLabel = (stato) => STATUS_LABELS[stato] || "Sconosciuto";
+const getProgressWidth = (stato) => PROGRESS[stato] || "0%";
+
+const badgeClass = (tipo) =>
+  tipo.includes("Rosso")
+    ? "b-rosso"
+    : tipo.includes("Bianco")
+    ? "b-bianco"
+    : "b-rosa";
+
+/* =========================
+   ABILITAZIONE AZIONI
+========================= */
+const canAdvance = (step, lotto) =>
+  !!props.avanza &&
+  lotto.stato === step.stato &&
+  props.userRole === step.role;
+
+const handleAdvance = (lotto) => {
+  if (props.avanza) props.avanza(lotto);
+};
 </script>
 
 <style scoped>
@@ -244,6 +252,7 @@ defineEmits(['elimina']);
 .affinato { background: #fffaf0; color: #9c4221; border: 1px solid #feebc8; }
 .imbottigliato { background: #f7fafc; color: #2d3748; border: 1px solid #edf2f7; }
 .distribuito { background: #faf5ff; color: #6b46c1; border: 1px solid #e9d8fd; }
+.spedito { background: #faf5ff; color: #5a4687; border: 1px solid #e2c8ff; }
 .btn-group {
   display: flex;
   justify-content: center;

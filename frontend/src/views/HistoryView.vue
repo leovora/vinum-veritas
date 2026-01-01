@@ -83,6 +83,7 @@ const STATUS_LABELS = [
   "fermentato",
   "affinato",
   "imbottigliato",
+  "spedito",
   "distribuito",
 ];
 
