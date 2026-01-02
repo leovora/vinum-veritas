@@ -68,13 +68,29 @@ const getStatusLabel = (stato) => ({
 ========================= */
 const loadLotti = async () => {
   if (!contractInstance.value) return;
+
   loading.value = true;
   try {
     const data = await contractInstance.value.methods.getLotti().call();
 
     lotti.value = data
       .map((l, index) => {
-        const statoStr = ["creato","vendemmiato","fermentato","affinato","imbottigliato", "spedito", "distribuito"][Number(l.stato)];
+        const statoStr = [
+          "creato",
+          "vendemmiato",
+          "fermentato",
+          "affinato",
+          "imbottigliato",
+          "spedito",
+          "distribuito",
+        ][Number(l.stato)];
+
+        const tsArray = l.timestamps?.map((t) => Number(t)) || [];
+        const luoghiArray = l.luoghi || [];
+
+        const faseTimestamps = tsArray.slice(1);
+        const faseLuoghi = luoghiArray.slice(1);
+
         return {
           blockchainIndex: index,
           id: l.id.toString(),
@@ -90,15 +106,19 @@ const loadLotti = async () => {
             Corriere: l.corriere,
             Distributore: l.distributore,
           },
+          timestamps: faseTimestamps,
+          luoghi: faseLuoghi,
         };
       })
-      .filter(l => l.statoRaw < 6); // solo lotti attivi
+      // solo lotti non ancora distribuiti
+      .filter((l) => l.statoRaw < 6);
   } catch (err) {
     console.error("Errore caricamento:", err);
   } finally {
     loading.value = false;
   }
 };
+
 
 // solo lotti attivi (non completati)
 const activeLotti = computed(() => lotti.value.filter(l => l.stato !== "finito"));

@@ -23,21 +23,34 @@
           <tr>
             <th>Fase</th>
             <th>Indirizzo Certificato</th>
-            <th>Validazione</th>
+            <th class="col-validation">Validazione</th>
+            <th class="col-timestamp">Timestamp</th>
+            <th class="col-luogo">Luogo</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="(phase, index) in PHASES" :key="phase.name">
             <td class="role-cell">{{ phase.name }}</td>
             <td class="address-cell">
-              {{ lotto.actors[phase.role] !== ZERO_ADDRESS ? lotto.actors[phase.role] : "In attesa..." }}
+              {{ lotto.actors[phase.role] && lotto.actors[phase.role] !== ZERO_ADDRESS
+                ? lotto.actors[phase.role]
+                : "In attesa..." }}
             </td>
-            <td>
+            <td class="col-validation">
               <span v-if="index < Number(lotto.statoRaw)" class="check-valid">✅ Fatto</span>
               <span v-else class="check-pending">❌ Da fare</span>
             </td>
+            <td class="col-timestamp">
+              {{ lotto.timestamps && lotto.timestamps[index]
+                ? new Date(lotto.timestamps[index] * 1000).toLocaleString()
+                : "-" }}
+            </td>
+            <td class="col-luogo">
+              {{ lotto.luoghi && lotto.luoghi[index] ? lotto.luoghi[index] : "-" }}
+            </td>
           </tr>
         </tbody>
+
       </table>
     </div>
   </div>
@@ -163,4 +176,18 @@ const PHASES = [
   color: #c0392b;
   font-weight: bold;
 }
+
+.col-validation {
+  width: 120px;
+  text-align: center;
+}
+
+.col-timestamp {
+  width: 180px;
+}
+
+.col-luogo {
+  width: 180px;
+}
+
 </style>

@@ -68,9 +68,11 @@ const STATUS_LABELS = [
   "fermentato",
   "affinato",
   "imbottigliato",
+  "spedito",
   "distribuito",
 ];
 
+// ===================== HANDLE SEARCH =====================
 const handleSearch = async () => {
   if (isConnecting.value) return;
 
@@ -86,15 +88,16 @@ const handleSearch = async () => {
 
   try {
     const index = visualId - 1;
-    const res = await contractInstance.value.methods
-      .lotti(index)
-      .call();
+    const res = await contractInstance.value.methods.getLotto(index).call();
 
     if (res && res.id.toString() !== "0") {
+      const tsArray = res.timestamps.map(t => Number(t));
+      const luoghiArray = res.luoghi;
+
       lottoDettaglio.value = {
         id: res.id.toString(),
         tipo: res.tipo,
-        statoRaw: res.stato,
+        statoRaw: Number(res.stato),
         statusLabel: STATUS_LABELS[Number(res.stato)],
         statusClass: `status-${res.stato}`,
         actors: {
@@ -104,16 +107,19 @@ const handleSearch = async () => {
           Corriere: res.corriere,
           Distributore: res.distributore,
         },
+        timestamps: tsArray.slice(1),
+        luoghi: luoghiArray.slice(1),
       };
     }
   } catch (err) {
-    console.error(err);
+    console.error("Errore ricerca lotto:", err);
     lottoDettaglio.value = null;
   } finally {
     loading.value = false;
   }
 };
 </script>
+
 
 <style scoped>
 .search-page-wrapper {

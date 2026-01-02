@@ -28,6 +28,7 @@ import { ref, watch, computed, inject } from "vue";
 import { useUserStore } from "../stores/user";
 import ProcessTable from "../components/ProcessTable.vue";
 import UserStatusBar from "../components/UserStatusBar.vue";
+import { getSimulatedLocation } from "../components/utils/locationSimulator.js";
 
 const userStore = useUserStore();
 const contractInstance = inject("contractInstance");
@@ -64,33 +65,42 @@ const loadLotti = async () => {
   try {
     const data = await contractInstance.value.methods.getLotti().call();
 
-    lotti.value = data.map((l, index) => {
-      const statoStr = [
-        "creato",
-        "vendemmiato",
-        "fermentato",
-        "affinato",
-        "imbottigliato",
-        "spedito",
-        "distribuito",
-      ][Number(l.stato)];
+    lotti.value = data
+      .map((l, index) => {
+        const statoStr = [
+          "creato",
+          "vendemmiato",
+          "fermentato",
+          "affinato",
+          "imbottigliato",
+          "spedito",
+          "distribuito",
+        ][Number(l.stato)];
 
-      return {
-        blockchainIndex: index,
-        id: l.id.toString(),
-        tipo: l.tipo,
-        stato: statoStr,
-        statoRaw: Number(l.stato),
-        statusLabel: getStatusLabel(statoStr),
-        statusClass: `status-${l.stato}`,
-        actors: {
-          Agricoltore: l.agricoltore,
-          Supervisore: l.supervisore,
-          Cantiniere: l.cantiniere,
-          Corriere: l.corriere,
-          Distributore: l.distributore,
-        },
-      };
+        const tsArray = l.timestamps?.map((t) => Number(t)) || [];
+        const luoghiArray = l.luoghi || [];
+
+        const faseTimestamps = tsArray.slice(1);
+        const faseLuoghi = luoghiArray.slice(1);
+
+        return {
+          blockchainIndex: index,
+          id: l.id.toString(),
+          tipo: l.tipo,
+          stato: statoStr,
+          statoRaw: Number(l.stato),
+          statusLabel: getStatusLabel(statoStr),
+          statusClass: `status-${l.stato}`,
+          actors: {
+            Agricoltore: l.agricoltore,
+            Supervisore: l.supervisore,
+            Cantiniere: l.cantiniere,
+            Corriere: l.corriere,
+            Distributore: l.distributore,
+          },
+          timestamps: faseTimestamps,
+          luoghi: faseLuoghi,
+        };
     });
   } catch (err) {
     console.error("Errore caricamento lotti:", err);
@@ -126,13 +136,18 @@ const filteredLotti = computed(() => {
 ========================= */
 const avanzaStato = async (lotto) => {
   if (!contractInstance.value) return;
+
+  const luogo = getSimulatedLocation(userRole.value);
+
   loading.value = true;
   try {
     await contractInstance.value.methods
-      .avanzaStato(lotto.blockchainIndex)
+      .avanzaStato(lotto.blockchainIndex, luogo)
       .send({ from: userAddress.value });
+
     await loadLotti();
-  } catch {
+  } catch (err) {
+    console.error(err);
     alert("Azione non permessa");
   } finally {
     loading.value = false;

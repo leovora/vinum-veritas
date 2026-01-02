@@ -95,16 +95,21 @@ const loadHistory = async () => {
     const data = await contractInstance.value.methods.getLotti().call();
 
     lotti.value = data.map((l) => {
-      const ts = l.timestamp ? Number(l.timestamp) : 0;
+      const tsArray = l.timestamps?.map((t) => Number(t)) || [];
+      const luoghiArray = l.luoghi || [];
+
+      const faseTimestamps = tsArray.slice(1);
+      const faseLuoghi = luoghiArray.slice(1);
+
       return {
         id: l.id.toString(),
         tipo: l.tipo,
-        statoRaw: l.stato,
+        statoRaw: Number(l.stato),
         statusLabel: STATUS_LABELS[Number(l.stato)] || "Finito",
         statusClass: `status-${l.stato}`,
         data:
-          ts > 0
-            ? new Date(ts * 1000).toLocaleDateString("it-IT")
+          tsArray.length > 0
+            ? new Date(tsArray[tsArray.length - 1] * 1000).toLocaleDateString("it-IT")
             : "In attesa...",
         actors: {
           Agricoltore: l.agricoltore,
@@ -113,8 +118,11 @@ const loadHistory = async () => {
           Corriere: l.corriere,
           Distributore: l.distributore,
         },
+        timestamps: faseTimestamps,
+        luoghi: faseLuoghi,
       };
     });
+
   } catch (err) {
     console.error("Errore caricamento storico:", err);
   } finally {

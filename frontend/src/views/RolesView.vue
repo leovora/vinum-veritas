@@ -124,40 +124,34 @@ const removeUser = async (address) => {
 
 .dashboard-main {
   max-width: 1200px;
-  margin: 10px auto 0;
+  margin: -40px auto 0;
   padding: 0 20px 100px;
+  position: relative;
 }
 
-.card {
-  background: white;
-  border-radius: 15px;
-  padding: 30px;
-  margin-bottom: 30px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-}
-
+/* titolo sezione */
 .card-title {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 15px;
   margin-bottom: 25px;
-  border-bottom: 2px solid #eee;
+  border-bottom: 2px solid var(--color-grigio-chiaro);
   padding-bottom: 15px;
 }
 
 .card-title h2 {
   margin: 0;
+  text-align: center;
   font-size: 1.8rem;
   color: var(--color-text-dark);
 }
 
 .subtitle {
   text-align: center;
-  color: #666;
+  color: var(--color-text-dark);
   margin-bottom: 30px;
 }
-
 .empty-msg {
   text-align: center;
   color: #999;
