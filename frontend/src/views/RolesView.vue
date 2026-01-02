@@ -40,6 +40,9 @@ import { inject, computed, ref, onMounted } from "vue";
 import { useUserStore } from "../stores/user";
 import RolesForm from "../components/RolesForm.vue";
 import UsersTable from "../components/UsersTable.vue";
+import { useToast } from '../components/utils/useToast.js';
+
+const { showToast } = useToast();
 
 const userStore = useUserStore();
 const contractInstance = inject("contractInstance");
@@ -68,10 +71,6 @@ const displayUsers = computed(() => {
 });
 
 const handleRegisterUser = async ({ address, role, name }) => {
-  if (adminRole.value !== "ADMIN") {
-    alert("Solo un ADMIN può registrare utenti");
-    return;
-  }
 
   try {
     console.log(`Registrazione di: ${name}...`);
@@ -88,10 +87,10 @@ const handleRegisterUser = async ({ address, role, name }) => {
     // 3. AGGIORNAMENTO GLOBALE
     if (refreshUsers) await refreshUsers();
 
-    alert(`Utente ${name} registrato con successo!`);
+    showToast(`Utente ${name} registrato con successo!`, "success");
   } catch (err) {
     console.error("Errore registrazione:", err);
-    alert("Errore transazione blockchain.");
+    showToast("Errore di transazione su Blockchain", "error");
   }
 };
 
@@ -106,10 +105,10 @@ const removeUser = async (address) => {
 
     if (refreshUsers) await refreshUsers();
 
-    alert("Utente rimosso con successo!");
+    showToast("Utente rimosso con successo", "success");
   } catch (err) {
     console.error("Errore rimozione utente:", err);
-    alert("Errore transazione blockchain.");
+    showToast("Errore transazione blockchain", "error");
   }
 };
 

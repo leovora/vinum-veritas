@@ -143,3 +143,13 @@ button:hover { border-color: #646cff; }
 ::-webkit-scrollbar-thumb:hover {
   background: #6b122b;      /* Un vinaccia leggermente più chiaro */
 }
+
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

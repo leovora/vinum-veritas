@@ -50,6 +50,9 @@
 <script setup>
 import { ref, inject, computed } from "vue";
 import LottoCard from "../components/LottoCard.vue";
+import { useToast } from '../components/utils/useToast.js';
+
+const { showToast } = useToast();
 
 const contractInstance = inject("contractInstance");
 
@@ -78,7 +81,7 @@ const handleSearch = async () => {
 
   const visualId = Number(searchId.value);
   if (!visualId || visualId < 1) {
-    alert("Inserisci un ID valido (partendo da 1)");
+    showToast("Inserisci un ID valido (partendo da 1)", "error");
     return;
   }
 

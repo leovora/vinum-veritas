@@ -30,6 +30,9 @@
 
 <script setup>
 import { reactive } from "vue";
+import { useToast } from '../components/utils/useToast.js';
+
+const { showToast } = useToast();
 
 const props = defineProps({
   availableRoles: {
@@ -48,7 +51,7 @@ const newUser = reactive({
 
 const submit = () => {
   if (!newUser.address || !newUser.role || !newUser.name) {
-    alert("Inserisci address, nome e ruolo");
+    showToast("Inserisci address, nome e ruolo", "error");
     return;
   }
 

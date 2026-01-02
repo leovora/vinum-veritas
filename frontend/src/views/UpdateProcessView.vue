@@ -29,6 +29,9 @@ import { useUserStore } from "../stores/user";
 import ProcessTable from "../components/ProcessTable.vue";
 import UserStatusBar from "../components/UserStatusBar.vue";
 import { getSimulatedLocation } from "../components/utils/locationSimulator.js";
+import { useToast } from '../components/utils/useToast.js';
+
+const { showToast } = useToast();
 
 const userStore = useUserStore();
 const contractInstance = inject("contractInstance");
@@ -148,7 +151,7 @@ const avanzaStato = async (lotto) => {
     await loadLotti();
   } catch (err) {
     console.error(err);
-    alert("Azione non permessa");
+    showToast("Azione non permessa", "error");
   } finally {
     loading.value = false;
   }

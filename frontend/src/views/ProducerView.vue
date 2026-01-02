@@ -42,6 +42,9 @@ import { useUserStore } from "../stores/user";
 import CreationCard from "../components/CreationCard.vue";
 import ProcessTable from "../components/ProcessTable.vue";
 import UserStatusBar from "../components/UserStatusBar.vue";
+import { useToast } from '../components/utils/useToast.js';
+
+const { showToast } = useToast();
 
 const userStore = useUserStore();
 const contractInstance = inject("contractInstance");
@@ -114,6 +117,7 @@ const loadLotti = async () => {
       .filter((l) => l.statoRaw < 6);
   } catch (err) {
     console.error("Errore caricamento:", err);
+    showToast("Errore nel caricamento dei processi", "error");
   } finally {
     loading.value = false;
   }
@@ -143,10 +147,10 @@ const creaLotti = async (tipo, quantita, selections) => {
         .send({ from: userAddress.value });
     }
     await loadLotti();
-    alert("Produzione avviata con successo!");
+    showToast("Produzione avviata con successo", "success");
   } catch (err) {
     console.error("Errore dettagliato:", err);
-    alert("Errore Blockchain: verifica i parametri o resetta MetaMask.");
+    showToast("Errore Blockchain: verifica i parametri o resetta MetaMask.", "error");
   } finally { loading.value = false; }
 };
 
@@ -172,7 +176,7 @@ const avanzaStato = async (lotto) => {
   try {
     await contractInstance.value.methods.avanzaStato(lotto.blockchainIndex).send({ from: userAddress.value });
     await loadLotti();
-  } catch { alert("Errore durante l'avanzamento"); }
+  } catch {showToast("Errore durante l'avanzamento", "error"); }
   finally { loading.value = false; }
 };
 
@@ -214,6 +218,7 @@ watch(() => contractInstance.value, async (val) => {
   display: flex;
   gap: 25px;
   flex-wrap: wrap;
+  align-items: flex-start;
 }
 .card-title {
   display: flex;
