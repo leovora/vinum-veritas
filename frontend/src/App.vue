@@ -6,6 +6,7 @@
 
     <div v-if="!loading" class="app-content">
       <AppHeader />
+      <ToastContainer />
       <main class="container">
         <router-view />
       </main>
@@ -22,6 +23,7 @@ import AppHeader from "./components/AppHeader.vue";
 import SplashScreen from "./views/SplashView.vue";
 import WineProductionJSON from "./abis/WineProduction.json";
 import { useUserStore } from "./stores/user";
+import ToastContainer from './components/ToastContainer.vue';
 
 const router = useRouter();
 const userStore = useUserStore();

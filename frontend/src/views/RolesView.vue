@@ -40,6 +40,9 @@ import { inject, computed, ref, onMounted } from "vue";
 import { useUserStore } from "../stores/user";
 import RolesForm from "../components/RolesForm.vue";
 import UsersTable from "../components/UsersTable.vue";
+import { useToast } from '../components/utils/useToast.js';
+
+const { showToast } = useToast();
 
 const userStore = useUserStore();
 const contractInstance = inject("contractInstance");
@@ -68,10 +71,6 @@ const displayUsers = computed(() => {
 });
 
 const handleRegisterUser = async ({ address, role, name }) => {
-  if (adminRole.value !== "ADMIN") {
-    alert("Solo un ADMIN può registrare utenti");
-    return;
-  }
 
   try {
     console.log(`Registrazione di: ${name}...`);
@@ -88,24 +87,32 @@ const handleRegisterUser = async ({ address, role, name }) => {
     // 3. AGGIORNAMENTO GLOBALE
     if (refreshUsers) await refreshUsers();
 
-    alert(`Utente ${name} registrato con successo!`);
+    showToast(`Utente ${name} registrato con successo!`, "success");
   } catch (err) {
     console.error("Errore registrazione:", err);
-    alert("Errore transazione blockchain.");
+    showToast("Errore di transazione su Blockchain", "error");
   }
 };
 
-const removeUser = (address) => {
-  localUsers.value = localUsers.value.filter(u => u.address !== address);
+const removeUser = async (address) => {
+
+  try {
+    await contractInstance.value.methods
+      .eliminaUtente(address)
+      .send({ from: adminAddress.value });
+
+    localUsers.value = localUsers.value.filter(u => u.address !== address);
+
+    if (refreshUsers) await refreshUsers();
+
+    showToast("Utente rimosso con successo", "success");
+  } catch (err) {
+    console.error("Errore rimozione utente:", err);
+    showToast("Errore transazione blockchain", "error");
+  }
 };
 
-onMounted(() => {
-  // Carichiamo i mock iniziali solo se la blockchain è vuota
-  localUsers.value = [
-    { address: "0xFA55b1f74E6548B0a44822d7f589f3BA51015388", role: "AGRICOLTORE", name: "Giorgione" },
-    { address: "0x832e2D1C32baFB201842B24Ea12e7B03e2Ca1965", role: "CORRIERE", name: "Bartolini" },
-  ];
-});
+
 </script>
 
 <style scoped>
@@ -116,40 +123,34 @@ onMounted(() => {
 
 .dashboard-main {
   max-width: 1200px;
-  margin: 10px auto 0;
+  margin: -40px auto 0;
   padding: 0 20px 100px;
+  position: relative;
 }
 
-.card {
-  background: white;
-  border-radius: 15px;
-  padding: 30px;
-  margin-bottom: 30px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-}
-
+/* titolo sezione */
 .card-title {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 15px;
   margin-bottom: 25px;
-  border-bottom: 2px solid #eee;
+  border-bottom: 2px solid var(--color-grigio-chiaro);
   padding-bottom: 15px;
 }
 
 .card-title h2 {
   margin: 0;
+  text-align: center;
   font-size: 1.8rem;
   color: var(--color-text-dark);
 }
 
 .subtitle {
   text-align: center;
-  color: #666;
+  color: var(--color-text-dark);
   margin-bottom: 30px;
 }
-
 .empty-msg {
   text-align: center;
   color: #999;

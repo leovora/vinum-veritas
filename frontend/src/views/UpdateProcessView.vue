@@ -1,6 +1,7 @@
 <template>
   <div class="producer-page-wrapper">
     <UserStatusBar :role="userRole" />
+
     <main class="dashboard-main">
       <section class="card processes-section">
         <div class="card-title">
@@ -12,10 +13,9 @@
         </div>
 
         <ProcessTable
+          v-else
           :lotti="filteredLotti"
           :userRole="userRole"
-          :getStatusLabel="getStatusLabel"
-          :getProgressWidth="getProgressWidth"
           :avanza="avanzaStato"
         />
       </section>
@@ -28,6 +28,10 @@ import { ref, watch, computed, inject } from "vue";
 import { useUserStore } from "../stores/user";
 import ProcessTable from "../components/ProcessTable.vue";
 import UserStatusBar from "../components/UserStatusBar.vue";
+import { getSimulatedLocation } from "../components/utils/locationSimulator.js";
+import { useToast } from '../components/utils/useToast.js';
+
+const { showToast } = useToast();
 
 const userStore = useUserStore();
 const contractInstance = inject("contractInstance");
@@ -36,13 +40,80 @@ const lotti = ref([]);
 const loading = ref(false);
 
 /* =========================
-   RUOLO E ACCOUNT (STORE)
+   RUOLO E ACCOUNT
 ========================= */
 const userRole = computed(() => userStore.role);
 const userAddress = computed(() => userStore.account);
 
 /* =========================
-   FILTRI LOTTI
+   UI HELPERS
+========================= */
+const getStatusLabel = (stato) =>
+  ({
+    creato: "In attesa di vendemmia",
+    vendemmiato: "Vendemmiato",
+    fermentato: "Fermentato",
+    affinato: "Affinato",
+    imbottigliato: "Imbottigliato",
+    spedito: "Spedito",
+    distribuito: "Ricezione confermata",
+  }[stato] || "Sconosciuto");
+
+/* =========================
+   LOAD LOTTI COMPLETI
+========================= */
+const loadLotti = async () => {
+  if (!contractInstance.value) return;
+  loading.value = true;
+  try {
+    const data = await contractInstance.value.methods.getLotti().call();
+
+    lotti.value = data
+      .map((l, index) => {
+        const statoStr = [
+          "creato",
+          "vendemmiato",
+          "fermentato",
+          "affinato",
+          "imbottigliato",
+          "spedito",
+          "distribuito",
+        ][Number(l.stato)];
+
+        const tsArray = l.timestamps?.map((t) => Number(t)) || [];
+        const luoghiArray = l.luoghi || [];
+
+        const faseTimestamps = tsArray.slice(1);
+        const faseLuoghi = luoghiArray.slice(1);
+
+        return {
+          blockchainIndex: index,
+          id: l.id.toString(),
+          tipo: l.tipo,
+          stato: statoStr,
+          statoRaw: Number(l.stato),
+          statusLabel: getStatusLabel(statoStr),
+          statusClass: `status-${l.stato}`,
+          actors: {
+            Agricoltore: l.agricoltore,
+            Supervisore: l.supervisore,
+            Cantiniere: l.cantiniere,
+            Corriere: l.corriere,
+            Distributore: l.distributore,
+          },
+          timestamps: faseTimestamps,
+          luoghi: faseLuoghi,
+        };
+    });
+  } catch (err) {
+    console.error("Errore caricamento lotti:", err);
+  } finally {
+    loading.value = false;
+  }
+};
+
+/* =========================
+   FILTRI LOTTI PER RUOLO
 ========================= */
 const filteredLotti = computed(() => {
   return lotti.value.filter((lotto) => {
@@ -56,76 +127,31 @@ const filteredLotti = computed(() => {
       case "CORRIERE":
         return lotto.stato === "imbottigliato";
       case "DISTRIBUTORE":
-        return lotto.stato === "distribuito";
+        return lotto.stato === "spedito";
       default:
-        return false;
+        return true; // VISITATORE o altri ruoli vedono tutto
     }
   });
 });
 
 /* =========================
-   UI HELPERS
-========================= */
-const getStatusLabel = (stato) =>
-  ({
-    creato: "In Attesa",
-    vendemmiato: "Vendemmiato",
-    fermentato: "Fermentato",
-    affinato: "Affinamento",
-    imbottigliato: "Imbottigliato",
-    distribuito: "Distribuito",
-  }[stato] || "Sconosciuto");
-
-const getProgressWidth = (stato) =>
-  ({
-    creato: "16%",
-    vendemmiato: "32%",
-    fermentato: "48%",
-    affinato: "64%",
-    imbottigliato: "80%",
-    distribuito: "100%",
-  }[stato] || "0%");
-
-/* =========================
-   LOAD LOTTI
-========================= */
-const loadLotti = async () => {
-  if (!contractInstance.value) return;
-
-  try {
-    const data = await contractInstance.value.methods.getLotti().call();
-    lotti.value = data.map((l, index) => ({
-      blockchainIndex: index,
-      id: l.id.toString(),
-      tipo: l.tipo,
-      stato: [
-        "creato",
-        "vendemmiato",
-        "fermentato",
-        "affinato",
-        "imbottigliato",
-        "distribuito",
-      ][Number(l.stato)],
-    }));
-  } catch (err) {
-    console.error("Errore caricamento lotti:", err);
-  }
-};
-
-/* =========================
-   AZIONE: AVANZA STATO
+   AVANZAMENTO STATO LOTTO
 ========================= */
 const avanzaStato = async (lotto) => {
   if (!contractInstance.value) return;
 
+  const luogo = getSimulatedLocation(userRole.value);
+
   loading.value = true;
   try {
     await contractInstance.value.methods
-      .avanzaStato(lotto.blockchainIndex)
+      .avanzaStato(lotto.blockchainIndex, luogo)
       .send({ from: userAddress.value });
+
     await loadLotti();
-  } catch {
-    alert("Azione non permessa");
+  } catch (err) {
+    console.error(err);
+    showToast("Azione non permessa", "error");
   } finally {
     loading.value = false;
   }
@@ -137,9 +163,7 @@ const avanzaStato = async (lotto) => {
 watch(
   () => contractInstance.value,
   async (val) => {
-    if (val) {
-      await loadLotti();
-    }
+    if (val) await loadLotti();
   },
   { immediate: true }
 );

@@ -1,35 +1,65 @@
 <template>
-  <div class="creation-card" :class="linea">
+  <div class="creation-card" :class="[linea, cardHeightClass]">
     <div class="card-header">
-      <h3 class="linea-title">Linea {{ lineaText }}</h3>
-      <span class="step-indicator">Step {{ currentStep + 1 }} di {{ totalSteps }}</span>
+      <h3 class="linea-title">Crea lotto {{ lineaText }}</h3>
+      <span class="step-indicator">
+        Step {{ currentStep + 1 }} di {{ totalSteps }}
+      </span>
     </div>
-    
+
     <div class="creation-content">
       <transition name="step-fade" mode="out-in">
-        
-        <div v-if="currentStep < rolesChain.length" :key="currentRole" class="step-container">
-          <label class="step-label">Assegna {{ formatLabel(currentRole) }}</label>
-          
+        <div
+          v-if="currentStep < rolesChain.length"
+          :key="currentRole"
+          class="step-container"
+        >
+          <label class="step-label">
+            Assegna {{ formatLabel(currentRole) }}
+          </label>
+
           <select v-model="selections[currentRole]" class="select-input-large">
             <option value="" disabled>Scegli dalla rubrica...</option>
-            <option v-for="user in getUsersByRole(currentRole)" :key="user.address" :value="user.address">
+            <option
+              v-for="user in getUsersByRole(currentRole)"
+              :key="user.address"
+              :value="user.address"
+            >
               {{ user.name }}
             </option>
           </select>
 
           <div class="step-actions">
-            <button @click="prevStep" :disabled="currentStep === 0" class="btn-outline">Indietro</button>
-            <button @click="nextStep" :disabled="!selections[currentRole]" :class="['btn-next', btnClass]">Avanti</button>
+            <button
+              @click="prevStep"
+              :disabled="currentStep === 0"
+              class="btn-outline"
+            >
+              Indietro
+            </button>
+
+            <button
+              @click="nextStep"
+              :disabled="!selections[currentRole]"
+              :class="['btn-next', btnClass]"
+            >
+              Avanti
+            </button>
           </div>
         </div>
 
         <div v-else key="final" class="step-container final-confirmation">
-          <label class="step-label">Configurazione Finale</label>
-          
+          <label class="step-label">Resoconto</label>
+
           <div class="quantity-selector">
-            <input v-model="quantita" type="number" min="1" max="10" class="input-qta">
-            <span class="lotti-text">Lotti da creare</span>
+            <input
+              v-model="quantita"
+              type="number"
+              min="1"
+              max="10"
+              class="input-qta"
+            />
+            <span class="lotti-text">N. lotti da creare</span>
           </div>
 
           <div class="summary-box">
@@ -37,46 +67,49 @@
             <ul class="summary-list">
               <li v-for="role in rolesChain" :key="role">
                 <span class="role-name">{{ formatLabel(role) }}:</span>
-                <span class="role-status">{{ selections[role] ? '✅' : '❌' }}</span>
+                <span class="role-value">
+                  {{ getSelectedUserName(role) }}
+                </span>
               </li>
             </ul>
           </div>
 
           <div class="step-actions">
             <button @click="prevStep" class="btn-outline">Modifica</button>
-            <button @click="handleCreate" :class="['btn-confirm', btnClass]">Crea Produzione {{ lineaText }}</button>
+
+            <button @click="handleCreate" :class="['btn-confirm', btnClass]">
+              Crea Produzione {{ lineaText }}
+            </button>
           </div>
         </div>
-
       </transition>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, inject, computed } from 'vue';
+import { ref, inject, computed } from "vue";
 
 const props = defineProps({
   lineaText: String,
   linea: String,
   btnClass: String,
-  onCreate: Function 
+  onCreate: Function,
 });
 
 const registeredUsers = inject("registeredUsers", ref([]));
+
 const currentStep = ref(0);
 const quantita = ref(1);
 
-// TUTTI I RUOLI DEL CONTRATTO
 const rolesChain = [
-  "AGRICOLTORE", 
-  "SUPERVISORE", 
-  "CANTINIERE", 
-  "CORRIERE", 
-  "DISTRIBUTORE"
+  "AGRICOLTORE",
+  "SUPERVISORE",
+  "CANTINIERE",
+  "CORRIERE",
+  "DISTRIBUTORE",
 ];
 
-// Inizializzazione dinamica delle selezioni basata sulla lista ruoli
 const selections = ref(
   rolesChain.reduce((acc, role) => {
     acc[role] = "";
@@ -87,41 +120,64 @@ const selections = ref(
 const totalSteps = computed(() => rolesChain.length + 1);
 const currentRole = computed(() => rolesChain[currentStep.value]);
 
-const getUsersByRole = (role) => {
-  return registeredUsers.value.filter(u => u.role === role);
+const cardHeightClass = computed(() =>
+  currentStep.value < rolesChain.length ? "card-compact" : "card-expanded"
+);
+
+const getUsersByRole = (role) =>
+  registeredUsers.value.filter((u) => u.role === role);
+
+const formatLabel = (role) => role.charAt(0) + role.slice(1).toLowerCase();
+
+const nextStep = () => {
+  if (currentStep.value < totalSteps.value - 1) currentStep.value++;
 };
 
-const formatLabel = (role) => {
-  // Converte "AGRICOLTORE" in "Agricoltore"
-  return role.charAt(0) + role.slice(1).toLowerCase();
+const prevStep = () => {
+  if (currentStep.value > 0) currentStep.value--;
 };
-
-const nextStep = () => { if (currentStep.value < totalSteps.value - 1) currentStep.value++; };
-const prevStep = () => { if (currentStep.value > 0) currentStep.value--; };
 
 const handleCreate = () => {
-  // Passiamo a ProducerView l'intero oggetto delle selezioni
   props.onCreate(props.lineaText, quantita.value, selections.value);
-  
-  // Reset completo
+
   currentStep.value = 0;
   quantita.value = 1;
-  rolesChain.forEach(role => selections.value[role] = "");
+  rolesChain.forEach((r) => (selections.value[r] = ""));
 };
+
+const getSelectedUserName = (role) => {
+  const address = selections.value[role];
+  if (!address) return "Non assegnato";
+
+  const user = registeredUsers.value.find(
+    (u) => u.address === address
+  );
+
+  return user ? user.name : "Utente sconosciuto";
+};
+
 </script>
 
 <style scoped>
-/* Il CSS rimane coerente con le tue specifiche di colori e layout bianco/nero */
 .creation-card {
   flex: 1;
   background: white;
   padding: 25px;
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-  min-height: 350px; /* Aumentato leggermente per accomodare la lista riepilogo */
   display: flex;
   flex-direction: column;
   color: #000;
+  transition: max-height 0.35s ease, padding 0.2s ease;
+  overflow: hidden;
+}
+
+.card-compact {
+  max-height: 260px;
+}
+
+.card-expanded {
+  max-height: 520px;
 }
 
 .card-header {
@@ -131,7 +187,11 @@ const handleCreate = () => {
   margin-bottom: 20px;
 }
 
-.linea-title { margin: 0; font-weight: 700; color: #000; }
+.linea-title {
+  margin: 0;
+  font-weight: 700;
+  color: #000;
+}
 
 .step-indicator {
   font-size: 0.75rem;
@@ -146,7 +206,6 @@ const handleCreate = () => {
   display: block;
   font-weight: 600;
   font-size: 1.1rem;
-  color: #000;
   margin-bottom: 5px;
 }
 
@@ -156,9 +215,8 @@ const handleCreate = () => {
   border-radius: 10px;
   border: 1px solid var(--color-grigio-chiaro);
   background: white;
-  color: #000;
   font-size: 1rem;
-  margin-bottom: 10px;
+  color: black;
 }
 
 .step-actions {
@@ -167,17 +225,20 @@ const handleCreate = () => {
   margin-top: 15px;
 }
 
-.btn-next, .btn-confirm {
+.btn-next,
+.btn-confirm {
   flex: 2;
   padding: 12px;
   border: none;
   border-radius: 10px;
   font-weight: bold;
   cursor: pointer;
-  transition: transform 0.2s, opacity 0.2s;
 }
 
-.btn-next:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-next:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .btn-outline {
   flex: 1;
@@ -186,7 +247,6 @@ const handleCreate = () => {
   border: 1px solid var(--color-grigio-chiaro);
   border-radius: 10px;
   font-weight: bold;
-  cursor: pointer;
 }
 
 .quantity-selector {
@@ -205,7 +265,9 @@ const handleCreate = () => {
   font-weight: bold;
 }
 
-.lotti-text { font-weight: 600; color: #000; }
+.lotti-text {
+  font-weight: 600;
+}
 
 .summary-box {
   background: rgba(255,255,255,0.4);
@@ -219,7 +281,7 @@ const handleCreate = () => {
 .summary-list {
   list-style: none;
   padding: 0;
-  margin: 8px 0 0 0;
+  margin: 8px 0 0;
 }
 
 .summary-list li {
@@ -229,19 +291,51 @@ const handleCreate = () => {
   border-bottom: 1px solid rgba(0,0,0,0.03);
 }
 
-.role-name { color: #555; }
+.rosso {
+  border: 2px solid var(--color-rosso);
+  background-color: var(--color-overlay-rosso);
+}
 
-/* COLORI DINAMICI */
-.rosso { border: 2px solid var(--color-rosso); background-color: var(--color-overlay-rosso); }
-.rosso .btn-next, .rosso .btn-confirm { background-color: var(--color-rosso); color: white; }
+.rosso .btn-next,
+.rosso .btn-confirm {
+  background-color: var(--color-rosso);
+  color: white;
+}
 
-.bianco { border: 2px solid var(--color-giallo); background-color: var(--color-overlay-giallo); }
-.bianco .btn-next, .bianco .btn-confirm { background-color: var(--color-giallo); color: #000; }
+.bianco {
+  border: 2px solid var(--color-giallo);
+  background-color: var(--color-overlay-giallo);
+}
 
-.rose { border: 2px solid var(--color-rosa); background-color: var(--color-overlay-rosa); }
-.rose .btn-next, .rose .btn-confirm { background-color: var(--color-rosa); color: #000; }
+.bianco .btn-next,
+.bianco .btn-confirm {
+  background-color: var(--color-giallo);
+  color: #000;
+}
 
-.step-fade-enter-active, .step-fade-leave-active { transition: all 0.3s ease; }
-.step-fade-enter-from { opacity: 0; transform: translateX(15px); }
-.step-fade-leave-to { opacity: 0; transform: translateX(-15px); }
+.rose {
+  border: 2px solid var(--color-rosa);
+  background-color: var(--color-overlay-rosa);
+}
+
+.rose .btn-next,
+.rose .btn-confirm {
+  background-color: var(--color-rosa);
+  color: #000;
+}
+
+.step-fade-enter-active,
+.step-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.step-fade-enter-from {
+  opacity: 0;
+  transform: translateX(15px);
+}
+
+.step-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-15px);
+}
 </style>
