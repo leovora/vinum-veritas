@@ -17,6 +17,8 @@
           :lotti="filteredLotti"
           :userRole="userRole"
           :avanza="avanzaStato"
+          @fallimento="handleFallimentoEvent"
+          @riabilita="handleRiabilitaEvent"
         />
       </section>
     </main>
@@ -29,25 +31,28 @@ import { useUserStore } from "../stores/user";
 import ProcessTable from "../components/ProcessTable.vue";
 import UserStatusBar from "../components/UserStatusBar.vue";
 import { getSimulatedLocation } from "../components/utils/locationSimulator.js";
-import { useToast } from '../components/utils/useToast.js';
+import { useToast } from "../components/utils/useToast.js";
 
+// --- Inizializzazione Store e Servizi ---
 const { showToast } = useToast();
-
 const userStore = useUserStore();
-const contractInstance = inject("contractInstance");
 
+// --- Iniezione dipendenze da App.vue ---
+const contractInstance = inject("contractInstance");
+const onSegnalaProblema = inject("onSegnalaProblema");
+const onRiabilitaLotto = inject("onRiabilitaLotto");
+
+// --- Stato Reattivo ---
 const lotti = ref([]);
 const loading = ref(false);
 
-/* =========================
-   RUOLO E ACCOUNT
-========================= */
+// --- Proprietà Computate ---
 const userRole = computed(() => userStore.role);
 const userAddress = computed(() => userStore.account);
 
-/* =========================
-   UI HELPERS
-========================= */
+/**
+ * Mappatura stringa leggibile per lo stato del lotto
+ */
 const getStatusLabel = (stato) =>
   ({
     creato: "In attesa di vendemmia",
@@ -57,66 +62,72 @@ const getStatusLabel = (stato) =>
     imbottigliato: "Imbottigliato",
     spedito: "Spedito",
     distribuito: "Ricezione confermata",
+    revisione: "⚠️ In Revisione",
   }[stato] || "Sconosciuto");
 
-/* =========================
-   LOAD LOTTI COMPLETI
-========================= */
+/**
+ * Caricamento lotti dal contratto intelligente
+ */
 const loadLotti = async () => {
   if (!contractInstance.value) return;
   loading.value = true;
   try {
     const data = await contractInstance.value.methods.getLotti().call();
 
-    lotti.value = data
-      .map((l, index) => {
-        const statoStr = [
-          "creato",
-          "vendemmiato",
-          "fermentato",
-          "affinato",
-          "imbottigliato",
-          "spedito",
-          "distribuito",
-        ][Number(l.stato)];
+    lotti.value = data.map((l, index) => {
+      const statiMappa = [
+        "creato",
+        "vendemmiato",
+        "fermentato",
+        "affinato",
+        "imbottigliato",
+        "spedito",
+        "distribuito",
+        "completato",
+        "revisione", // Indice 8 nel contratto
+      ];
 
-        const tsArray = l.timestamps?.map((t) => Number(t)) || [];
-        const luoghiArray = l.luoghi || [];
+      const statoStr = statiMappa[Number(l.stato)] || "finito";
+      const tsArray = l.timestamps?.map((t) => Number(t)) || [];
+      const luoghiArray = l.luoghi || [];
 
-        const faseTimestamps = tsArray.slice(1);
-        const faseLuoghi = luoghiArray.slice(1);
-
-        return {
-          blockchainIndex: index,
-          id: l.id.toString(),
-          tipo: l.tipo,
-          stato: statoStr,
-          statoRaw: Number(l.stato),
-          statusLabel: getStatusLabel(statoStr),
-          statusClass: `status-${l.stato}`,
-          actors: {
-            Agricoltore: l.agricoltore,
-            Supervisore: l.supervisore,
-            Cantiniere: l.cantiniere,
-            Corriere: l.corriere,
-            Distributore: l.distributore,
-          },
-          timestamps: faseTimestamps,
-          luoghi: faseLuoghi,
-        };
+      return {
+        blockchainIndex: index,
+        id: l.id.toString(),
+        tipo: l.tipo,
+        stato: statoStr,
+        statoRaw: Number(l.stato),
+        statusLabel: getStatusLabel(statoStr),
+        statusClass: `status-${l.stato}`,
+        actors: {
+          Agricoltore: l.agricoltore,
+          Supervisore: l.supervisore,
+          Cantiniere: l.cantiniere,
+          Corriere: l.corriere,
+          Distributore: l.distributore,
+        },
+        timestamps: tsArray.slice(1),
+        luoghi: luoghiArray,
+      };
     });
   } catch (err) {
     console.error("Errore caricamento lotti:", err);
+    showToast("Impossibile caricare i dati dalla blockchain", "error");
   } finally {
     loading.value = false;
   }
 };
 
-/* =========================
-   FILTRI LOTTI PER RUOLO
-========================= */
+/**
+ * Filtro dei lotti in base al ruolo dell'utente loggato
+ */
 const filteredLotti = computed(() => {
   return lotti.value.filter((lotto) => {
+    // Se il lotto è in revisione, è visibile a tutti per trasparenza/blocco
+    if (lotto.stato === "revisione") {
+      return true;
+    }
+
     switch (userRole.value) {
       case "AGRICOLTORE":
         return lotto.stato === "creato";
@@ -129,37 +140,51 @@ const filteredLotti = computed(() => {
       case "DISTRIBUTORE":
         return lotto.stato === "spedito";
       default:
-        return true; // VISITATORE o altri ruoli vedono tutto
+        return true;
     }
   });
 });
 
-/* =========================
-   AVANZAMENTO STATO LOTTO
-========================= */
+/**
+ * Gestione evento di segnalazione problema (da Tabella)
+ */
+const handleFallimentoEvent = (data) => {
+  console.log("VIEW: Ricevuto @fallimento, chiamo onSegnalaProblema");
+  if (onSegnalaProblema) onSegnalaProblema(data);
+};
+
+/**
+ * Gestione evento di riabilitazione lotto (da Tabella)
+ */
+const handleRiabilitaEvent = (lotto) => {
+  if (onRiabilitaLotto) onRiabilitaLotto(lotto);
+};
+
+/**
+ * Avanzamento dello stato del processo sulla blockchain
+ */
 const avanzaStato = async (lotto) => {
   if (!contractInstance.value) return;
 
   const luogo = getSimulatedLocation(userRole.value);
-
   loading.value = true;
+
   try {
     await contractInstance.value.methods
       .avanzaStato(lotto.blockchainIndex, luogo)
       .send({ from: userAddress.value });
 
     await loadLotti();
+    showToast("Stato aggiornato con successo!", "success");
   } catch (err) {
     console.error(err);
-    showToast("Azione non permessa", "error");
+    showToast("Azione non permessa o annullata", "error");
   } finally {
     loading.value = false;
   }
 };
 
-/* =========================
-   INIT
-========================= */
+// --- Watcher per istanza contratto ---
 watch(
   () => contractInstance.value,
   async (val) => {

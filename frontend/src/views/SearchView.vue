@@ -14,7 +14,7 @@
           <input
             v-model="searchId"
             type="number"
-            placeholder="Inserisci l'ID del Lotto (es. 1)"
+            placeholder="Inserisci l'ID del Lotto (es. 3)"
             @keyup.enter="handleSearch"
           />
           <button
@@ -73,15 +73,18 @@ const STATUS_LABELS = [
   "imbottigliato",
   "spedito",
   "distribuito",
+  "completato",
+  "revisione" 
 ];
 
 // ===================== HANDLE SEARCH =====================
 const handleSearch = async () => {
   if (isConnecting.value) return;
 
-  const visualId = Number(searchId.value);
-  if (!visualId || visualId < 1) {
-    showToast("Inserisci un ID valido (partendo da 1)", "error");
+  // Convertiamo l'input in stringa per un confronto sicuro con l'ID della blockchain
+  const targetId = searchId.value.toString();
+  if (!targetId || Number(targetId) < 1) {
+    showToast("Inserisci un ID valido", "error");
     return;
   }
 
@@ -90,19 +93,32 @@ const handleSearch = async () => {
   lottoDettaglio.value = null;
 
   try {
-    const index = visualId - 1;
-    const res = await contractInstance.value.methods.getLotto(index).call();
+    // 1. Invece di usare getLotto(index), prendiamo tutti i lotti
+    // Questo permette di trovare il lotto corretto anche se gli indici sono sballati
+    const allLotti = await contractInstance.value.methods.getLotti().call();
+
+    // 2. Cerchiamo il lotto nell'array che ha l'ID corrispondente a quello cercato
+    const res = allLotti.find(l => l.id.toString() === targetId);
 
     if (res && res.id.toString() !== "0") {
       const tsArray = res.timestamps.map(t => Number(t));
-      const luoghiArray = res.luoghi;
+      const statoIdx = Number(res.stato);
+      
+      // Filtriamo i messaggi tecnici dalla cronologia dei luoghi
+      const soloLuoghiGeografici = res.luoghi.filter(l => 
+        !l.includes("PROBLEMA:") && !l.includes("Riabilitato")
+      );
+
+      const notaProblema = res.luoghi
+        .findLast(l => l.includes("PROBLEMA:"))
+        ?.replace("PROBLEMA: ", "");
 
       lottoDettaglio.value = {
         id: res.id.toString(),
         tipo: res.tipo,
-        statoRaw: Number(res.stato),
-        statusLabel: STATUS_LABELS[Number(res.stato)],
-        statusClass: `status-${res.stato}`,
+        statoRaw: statoIdx,
+        statusLabel: statoIdx === 8 ? "IN REVISIONE" : STATUS_LABELS[statoIdx],
+        statusClass: statoIdx === 8 ? "revisione" : `status-${res.stato}`,
         actors: {
           Agricoltore: res.agricoltore,
           Supervisore: res.supervisore,
@@ -111,11 +127,15 @@ const handleSearch = async () => {
           Distributore: res.distributore,
         },
         timestamps: tsArray.slice(1),
-        luoghi: luoghiArray.slice(1),
+        luoghi: soloLuoghiGeografici.slice(1),
+        motivazione: statoIdx === 8 ? notaProblema : null
       };
+    } else {
+      showToast("Lotto non trovato (potrebbe essere stato eliminato)", "warning");
     }
   } catch (err) {
     console.error("Errore ricerca lotto:", err);
+    showToast("Errore durante la comunicazione con la Blockchain", "error");
     lottoDettaglio.value = null;
   } finally {
     loading.value = false;
@@ -123,10 +143,9 @@ const handleSearch = async () => {
 };
 </script>
 
-
 <style scoped>
 .search-page-wrapper {
-  background: #fff;
+  background: #fdfdfd;
   min-height: 100vh;
 }
 
@@ -160,7 +179,6 @@ const handleSearch = async () => {
   font-size: 1.1rem;
 }
 
-/* CARD GENERICHE DI PAGINA */
 .card {
   border: 1px solid #eee;
   background: #fff;
@@ -170,11 +188,6 @@ const handleSearch = async () => {
   box-shadow: 0 4px 15px rgba(0,0,0,0.03);
 }
 
-.filter-section {
-  margin-bottom: 30px;
-}
-
-/* SEARCH BAR */
 .search-bar {
   display: flex;
   gap: 12px;
@@ -194,14 +207,32 @@ const handleSearch = async () => {
   outline: none;
 }
 
-/* ERROR */
+.btn-primary {
+  background: #c0392b;
+  color: white;
+  border: none;
+  padding: 0 25px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #a93226;
+}
+
+.btn-primary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
 .error-box {
   text-align: center;
   color: #c0392b;
   padding: 40px;
 }
 
-/* ANIMAZIONE */
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out;
 }
@@ -216,5 +247,4 @@ const handleSearch = async () => {
     transform: translateY(0);
   }
 }
-
 </style>

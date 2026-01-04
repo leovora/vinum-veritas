@@ -15,7 +15,7 @@
           <td colspan="4" class="empty-msg">Nessun lotto presente.</td>
         </tr>
 
-        <tr v-for="lotto in lotti" :key="lotto.id">
+        <tr v-for="lotto in lotti" :key="lotto.id" :class="{ 'row-revisione': lotto.stato === 'revisione' }">
           <td class="id-cell">#{{ lotto.id }}</td>
 
           <td>
@@ -34,30 +34,58 @@
           </td>
 
           <td>
-            <span :class="['status-pill', lotto.stato]">
-              {{ getStatusLabel(lotto.stato) }}
-            </span>
+            <div class="status-flex-container">
+              <span :class="['status-pill', lotto.stato]">
+                {{ lotto.stato === 'revisione' ? 'Bloccato' : STATUS_LABELS[lotto.stato] }}
+              </span>
+
+              <div v-if="lotto.stato === 'revisione'" class="postit-container">
+                <div class="postit-circle-icon">?</div>
+                <div class="postit-tooltip">
+                  <p class="tooltip-title">Nota di segnalazione:</p>
+                  <p class="tooltip-text">{{ getMotivazioneCompleta(lotto) }}</p>
+                </div>
+              </div>
+            </div>
           </td>
 
           <td class="actions-cell">
             <div class="btn-group">
-              <button
-                v-for="step in STEPS"
-                :key="step.label"
-                class="btn-step"
-                :disabled="!canAdvance(step, lotto)"
-                @click="handleAdvance(lotto)"
-              >
-                {{ step.icon }} {{ step.label }}
-              </button>
+              
+              <template v-if="lotto.stato !== 'revisione'">
+                <button
+                  v-for="step in STEPS"
+                  :key="step.label"
+                  class="btn-step"
+                  :disabled="!canAdvance(step, lotto)"
+                  @click="handleAdvance(lotto)"
+                >
+                  {{ step.icon }} {{ step.label }}
+                </button>
 
-              <button
-                v-if="userRole === 'ADMIN'"
-                class="btn-delete"
-                @click="$emit('elimina', lotto)"
-              >
-                🗑️ Elimina
-              </button>
+                <template v-for="step in STEPS" :key="'fail-' + step.label">
+                  <button
+                    v-if="userRole !== 'ADMIN' && canAdvance(step, lotto)"
+                    class="btn-fail"
+                    @click="handleFail(lotto)"
+                  >
+                    ⚠️ Segnala
+                  </button>
+                </template>
+              </template>
+
+              <template v-else-if="userRole === 'ADMIN'">
+                <button class="btn-approve" @click="handleRiabilita(lotto)">
+                  ✅ Sblocca
+                </button>
+                <button class="btn-delete" @click="$emit('elimina', lotto)">
+                  🗑️ Elimina
+                </button>
+              </template>
+
+              <span v-else class="lock-msg">
+                🔒 In revisione
+              </span>
 
               <IspezionaButton :lotto="lotto" />
             </div>
@@ -69,9 +97,10 @@
 </template>
 
 <script setup>
+import { onMounted } from "vue";
 import IspezionaButton from "./IspezionaButton.vue";
 
-defineEmits(["elimina"]);
+const emit = defineEmits(["elimina", "fallimento", "riabilita"]);
 
 const props = defineProps({
   lotti: { type: Array, required: true },
@@ -79,22 +108,21 @@ const props = defineProps({
   avanza: { type: Function, default: null },
 });
 
-/* =========================
-   STATO → LABEL UI
-========================= */
+onMounted(() => {
+  console.log("LOG 1 [Tabella]: Caricata versione con Post-it Statico");
+});
+
 const STATUS_LABELS = {
-  creato: "In attesa di vendemmia",
+  creato: "In attesa",
   vendemmiato: "Vendemmiato",
   fermentato: "Fermentato",
   affinato: "Affinato",
   imbottigliato: "Imbottigliato",
   spedito: "Spedito",
-  distribuito: "Ricezione confermata",
+  distribuito: "Ricevuto",
+  revisione: "In Revisione",
 };
 
-/* =========================
-   PROGRESS
-========================= */
 const PROGRESS = {
   creato: "14%",
   vendemmiato: "28%",
@@ -103,183 +131,218 @@ const PROGRESS = {
   imbottigliato: "70%",
   spedito: "85%",
   distribuito: "100%",
+  revisione: "100%",
 };
 
-/* =========================
-   STEP OPERATIVI
-========================= */
 const STEPS = [
   { stato: "creato", role: "AGRICOLTORE", label: "Vendemmia", icon: "🍇" },
   { stato: "vendemmiato", role: "SUPERVISORE", label: "Fermentazione", icon: "🧪" },
   { stato: "fermentato", role: "SUPERVISORE", label: "Affinamento", icon: "🏺" },
   { stato: "affinato", role: "CANTINIERE", label: "Imbottigliamento", icon: "🍾" },
   { stato: "imbottigliato", role: "CORRIERE", label: "Spedizione", icon: "🚚" },
-  { stato: "spedito", role: "DISTRIBUTORE", label: "Conferma ricezione", icon: "🏢" },
+  { stato: "spedito", role: "DISTRIBUTORE", label: "Ricezione", icon: "🏢" },
 ];
 
-/* =========================
-   UI HELPERS
-========================= */
-const getStatusLabel = (stato) => STATUS_LABELS[stato] || "Sconosciuto";
+const getMotivazioneCompleta = (lotto) => {
+  const entry = lotto.luoghi.findLast(l => l.includes("PROBLEMA: "));
+  return entry ? entry.replace("PROBLEMA: ", "") : "Nessun dettaglio fornito.";
+};
+
 const getProgressWidth = (stato) => PROGRESS[stato] || "0%";
 
 const badgeClass = (tipo) =>
-  tipo.includes("Rosso")
-    ? "b-rosso"
-    : tipo.includes("Bianco")
-    ? "b-bianco"
-    : "b-rosa";
+  tipo.includes("Rosso") ? "b-rosso" : tipo.includes("Bianco") ? "b-bianco" : "b-rosa";
 
-/* =========================
-   ABILITAZIONE AZIONI
-========================= */
-const canAdvance = (step, lotto) =>
-  !!props.avanza &&
-  lotto.stato === step.stato &&
-  props.userRole === step.role;
+const canAdvance = (step, lotto) => {
+  return lotto.stato !== 'revisione' && 
+         lotto.stato === step.stato && 
+         props.userRole === step.role;
+};
 
 const handleAdvance = (lotto) => {
   if (props.avanza) props.avanza(lotto);
 };
+
+const handleFail = (lotto) => {
+  const motivazione = prompt("Descrivi il problema per il lotto #" + lotto.id + ":");
+  if (motivazione && motivazione.trim() !== "") {
+    emit('fallimento', { lotto, motivazione }); 
+  }
+};
+
+const handleRiabilita = (lotto) => {
+  emit('riabilita', lotto);
+};
 </script>
 
 <style scoped>
-
-.btn-delete {
-  background: #ff4757;
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.85rem;
-  transition: all 0.2s ease;
+.status-flex-container {
   display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  gap: 12px;
 }
 
-.btn-delete:hover {
-  background: #ff6b81;
-  transform: translateY(-1px);
+/* Tooltip Post-it Statico */
+.postit-container {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-.empty-msg {
-  text-align: center;
-  padding: 30px;
-  color: #888;
-  font-style: italic;
+.postit-circle-icon {
+  width: 22px;
+  height: 22px;
+  background-color:black; 
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: help;
+  /* Nessuna trasformazione all'hover per stabilità visiva */
 }
 
-.process-table-container {
-  overflow-x: auto;
-  padding: 10px;
+.postit-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: 140%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #2d3436;
+  color: #fff;
+  text-align: left;
+  padding: 12px;
+  border-radius: 8px;
+  width: 240px;
+  z-index: 100;
+  box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+  transition: opacity 0.3s, visibility 0.3s;
+  pointer-events: none;
 }
-.process-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0 10px;
+
+.postit-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -6px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: #2d3436 transparent transparent transparent;
 }
-.process-table th {
-  text-align: center;
-  padding: 15px;
-  color: #666;
-  font-size: 0.8rem;
+
+.postit-container:hover .postit-tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+.tooltip-title {
+  font-size: 0.7rem;
+  font-weight: bold;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  color: #fab1a0;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
 }
-.process-table td {
-  padding: 15px;
-  background: white;
-  border-top: 1px solid #eee;
-  border-bottom: 1px solid #eee;
-  text-align: center;
+
+.tooltip-text {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin: 0;
+  word-wrap: break-word;
 }
-.process-table td:first-child {
-  border-left: 1px solid #eee;
-  border-radius: 10px 0 0 10px;
+
+/* Row Styling */
+.row-revisione td {
+  background-color: #fff5f5 !important;
 }
-.process-table td:last-child {
-  border-right: 1px solid #eee;
-  border-radius: 0 10px 10px 0;
-}
-.badge {
-  padding: 5px 12px;
+
+.status-pill {
+  padding: 6px 14px;
   border-radius: 20px;
   font-size: 0.75rem;
-  font-weight: bold;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.revisione {
+  background: #d63031;
   color: white;
 }
-.b-rosso {
-  background: #b22222;
-}
-.b-bianco {
-  background: #f4d03f;
-}
-.b-rosa {
-  background: #db7093;
-}
-.type-progress-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-.progress-container {
-  width: 100px;
-  height: 6px;
-  background: #eee;
-  border-radius: 10px;
-  overflow: hidden;
-}
-.progress-bar {
-  height: 100%;
-  background: #800020;
-  transition: width 0.4s ease;
-}
-.status-pill {
+
+/* Bottoni */
+.btn-fail {
+  background: none;
+  border: 1px solid #e17055;
+  color: #e17055;
   padding: 6px 12px;
   border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: bold;
-  display: inline-block;
-  min-width: 110px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.75rem;
 }
-.creato { background: #f8f9fa; color: #6c757d; border: 1px solid #dee2e6; }
-.vendemmiato { background: #e6fffa; color: #2d3748; border: 1px solid #b2f5ea; }
-.fermentato { background: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; }
-.affinato { background: #fffaf0; color: #9c4221; border: 1px solid #feebc8; }
-.imbottigliato { background: #f7fafc; color: #2d3748; border: 1px solid #edf2f7; }
-.distribuito { background: #faf5ff; color: #6b46c1; border: 1px solid #e9d8fd; }
-.spedito { background: #faf5ff; color: #5a4687; border: 1px solid #e2c8ff; }
-.btn-group {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
+
+.btn-fail:hover {
+  background: #e17055;
+  color: white;
 }
+
+.btn-approve {
+  background: #00b894;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.btn-approve:hover { opacity: 1; color: black; }
+
+
+.btn-delete {
+  background: #d63031;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.btn-delete:hover { opacity: 1; color: black; }
+
+.btn-group { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; align-items: center; }
+
 .btn-step {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   background: white;
   border: 1.5px solid #800020;
   color: #800020;
-  padding: 8px 12px;
+  padding: 8px 14px;
   border-radius: 8px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.85rem;
-  transition: all 0.2s ease;
-  white-space: nowrap;
 }
-.btn-step:disabled {
-  display: none;
-}
-.btn-step:hover:not(:disabled) {
-  background: #800020;
+.lock-msg{
+  background: #1a1a1a;
   color: white;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.2s;
+  font-size: 15px;
 }
+.lock-msg:hover { background: #c0392b; }
+
+.btn-step:disabled { display: none; }
+.btn-step:hover { background: #800020; color: white; }
+
+.process-table { width: 100%; border-collapse: separate; border-spacing: 0 10px; }
+.process-table td { padding: 14px; background: white; border-top: 1px solid #eee; border-bottom: 1px solid #eee; text-align: center; vertical-align: middle; }
 </style>
