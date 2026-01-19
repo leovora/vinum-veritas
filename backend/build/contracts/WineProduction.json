@@ -34972,12 +34972,12 @@
     "1337": {
       "events": {},
       "links": {},
-      "address": "0x0112ae145eD010cd104cccF948B2f7C34d5fBbb3",
-      "transactionHash": "0x4c3210de656703f1cbcfffbdc0c50c7b53965e723eba7f10eba3204f0a792719"
+      "address": "0x313814EEf3a8D7b52b828C813C21281Ea4166f61",
+      "transactionHash": "0xea7dcda47be05cb7a413c46ed32f7f39c871a02c7b4d72dff114cda511c2c8e2"
     }
   },
   "schemaVersion": "3.4.14",
-  "updatedAt": "2026-01-04T15:02:13.176Z",
+  "updatedAt": "2026-01-19T14:09:19.281Z",
   "networkType": "ethereum",
   "devdoc": {
     "kind": "dev",

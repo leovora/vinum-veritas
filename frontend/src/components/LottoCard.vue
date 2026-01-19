@@ -1,5 +1,16 @@
 <template>
   <div class="lotto-card card animate-fade-in">
+    <div v-if="lotto.statoRawVero === 8 || lotto.inRevisione" class="alert-revisione">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-content">
+        <p class="alert-title">Lotto in Fase di Revisione</p>
+        <p class="alert-desc">
+          Il monitoraggio ha rilevato un'incongruenza. <br />
+          <strong>Motivazione:</strong> {{ lotto.motivazione || 'Analisi tecnica in corso' }}
+        </p>
+      </div>
+    </div>
+
     <div class="lotto-header">
       <div class="lotto-id-centered">
         <h2 class="lotto-number">Lotto #{{ lotto.id }}</h2>
@@ -36,28 +47,32 @@
                 ? lotto.actors[phase.role]
                 : "In attesa..." }}
             </td>
+            
             <td class="col-validation">
-              <span v-if="index < Number(lotto.statoRaw)" class="check-valid">✅ Fatto</span>
+              <span v-if="Number(lotto.statoRaw) >= index + 1" class="check-valid">✅ Fatto</span>
               <span v-else class="check-pending">❌ Da fare</span>
             </td>
+
             <td class="col-timestamp">
               {{ lotto.timestamps && lotto.timestamps[index]
                 ? new Date(lotto.timestamps[index] * 1000).toLocaleString()
                 : "-" }}
             </td>
+
             <td class="col-luogo">
               {{ lotto.luoghi && lotto.luoghi[index] ? lotto.luoghi[index] : "-" }}
             </td>
           </tr>
         </tbody>
-
       </table>
     </div>
   </div>
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue';
+
+const props = defineProps({
   lotto: {
     type: Object,
     required: true,
@@ -66,7 +81,6 @@ defineProps({
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-// Definizione fasi ordinate correttamente
 const PHASES = [
   { name: "Vendemmia", role: "Agricoltore" },
   { name: "Fermentazione", role: "Supervisore" },
@@ -86,7 +100,43 @@ const PHASES = [
   margin-bottom: 25px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.03);
 }
+.alert-revisione {
+  background: #fff5f5;
+  border: 1px solid #feb2b2; 
+  padding: 20px;
+  margin-bottom: 25px;
+  display: flex;
+  flex-direction: column; 
+  align-items: center;    
+  justify-content: center;
+  text-align: center;     
+  gap: 10px;
+}
 
+
+.alert-icon { 
+  font-size: 1.8rem; 
+  margin-bottom: 5px;
+}
+
+.alert-title { 
+  font-weight: 800; 
+  color: #c53030; 
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.alert-desc { 
+  color: #742a2a; 
+  margin: 0; 
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.alert-desc strong {
+  color: #c53030;
+}
 .lotto-header {
   display: flex;
   flex-direction: column;
@@ -113,10 +163,7 @@ const PHASES = [
 
 .status-0 { background: #fff3e0; color: #e67e22; }
 .status-5 { background: #e8f5e9; color: #27ae60; }
-.status-pill:not(.status-0):not(.status-5) {
-  background: #f4f4f4;
-  color: #666;
-}
+.revisione, .status-revisione { background: #c53030; color: white; }
 
 .lotto-info-single {
   text-align: center;
@@ -139,7 +186,6 @@ const PHASES = [
 .process-table-custom {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
 }
 
 .process-table-custom th {
@@ -157,37 +203,7 @@ const PHASES = [
   font-size: 0.9rem;
 }
 
-.role-cell {
-  font-weight: bold;
-}
-
-.address-cell {
-  font-family: monospace;
-  color: #666;
-  font-size: 0.85rem;
-}
-
-.check-valid {
-  color: #27ae60;
-  font-weight: bold;
-}
-
-.check-pending {
-  color: #c0392b;
-  font-weight: bold;
-}
-
-.col-validation {
-  width: 120px;
-  text-align: center;
-}
-
-.col-timestamp {
-  width: 180px;
-}
-
-.col-luogo {
-  width: 180px;
-}
-
+.check-valid { color: #27ae60; font-weight: bold; }
+.check-pending { color: #c0392b; font-weight: bold; }
+.col-validation { width: 120px; text-align: center; }
 </style>

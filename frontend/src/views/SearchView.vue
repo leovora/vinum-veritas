@@ -53,7 +53,6 @@ import LottoCard from "../components/LottoCard.vue";
 import { useToast } from '../components/utils/useToast.js';
 
 const { showToast } = useToast();
-
 const contractInstance = inject("contractInstance");
 
 const searchId = ref("");
@@ -66,22 +65,14 @@ const isConnecting = computed(
 );
 
 const STATUS_LABELS = [
-  "creato",
-  "vendemmiato",
-  "fermentato",
-  "affinato",
-  "imbottigliato",
-  "spedito",
-  "distribuito",
-  "completato",
-  "revisione" 
+  "creato", "vendemmiato", "fermentato", "affinato", 
+  "imbottigliato", "spedito", "distribuito", "completato", "revisione" 
 ];
 
 // ===================== HANDLE SEARCH =====================
 const handleSearch = async () => {
   if (isConnecting.value) return;
 
-  // Convertiamo l'input in stringa per un confronto sicuro con l'ID della blockchain
   const targetId = searchId.value.toString();
   if (!targetId || Number(targetId) < 1) {
     showToast("Inserisci un ID valido", "error");
@@ -93,21 +84,33 @@ const handleSearch = async () => {
   lottoDettaglio.value = null;
 
   try {
-    // 1. Invece di usare getLotto(index), prendiamo tutti i lotti
-    // Questo permette di trovare il lotto corretto anche se gli indici sono sballati
+    // Recuperiamo tutti i lotti per trovare l'ID corretto indipendentemente dall'indice
     const allLotti = await contractInstance.value.methods.getLotti().call();
-
-    // 2. Cerchiamo il lotto nell'array che ha l'ID corrispondente a quello cercato
     const res = allLotti.find(l => l.id.toString() === targetId);
 
     if (res && res.id.toString() !== "0") {
+      const rawStato = Number(res.stato);
       const tsArray = res.timestamps.map(t => Number(t));
-      const statoIdx = Number(res.stato);
-      
-      // Filtriamo i messaggi tecnici dalla cronologia dei luoghi
-      const soloLuoghiGeografici = res.luoghi.filter(l => 
-        !l.includes("PROBLEMA:") && !l.includes("Riabilitato")
-      );
+      const luoghiArray = res.luoghi;
+
+      // 1. FILTRAGGIO SINCRONIZZATO (Luoghi vs Timestamps)
+      const indiciValidi = [];
+      const luoghiPuliti = luoghiArray.filter((l, idx) => {
+        const isTecnico = l.includes("PROBLEMA:") || l.includes("Riabilitato");
+        if (!isTecnico) {
+          indiciValidi.push(idx);
+          return true;
+        }
+        return false;
+      });
+
+      const timestampsPuliti = tsArray.filter((_, idx) => indiciValidi.includes(idx));
+
+      // 2. CALCOLO STATO APPARENTE 
+      // Evita che la barra progresso mostri tutto verde se lo stato è 8 (revisione)
+      const statoApparente = rawStato === 8 
+        ? Math.max(0, luoghiPuliti.length - 1) 
+        : rawStato;
 
       const notaProblema = res.luoghi
         .findLast(l => l.includes("PROBLEMA:"))
@@ -116,9 +119,9 @@ const handleSearch = async () => {
       lottoDettaglio.value = {
         id: res.id.toString(),
         tipo: res.tipo,
-        statoRaw: statoIdx,
-        statusLabel: statoIdx === 8 ? "IN REVISIONE" : STATUS_LABELS[statoIdx],
-        statusClass: statoIdx === 8 ? "revisione" : `status-${res.stato}`,
+        statoRaw: statoApparente,
+        statusLabel: rawStato === 8 ? "IN REVISIONE" : STATUS_LABELS[rawStato],
+        statusClass: rawStato === 8 ? "revisione" : `status-${res.stato}`,
         actors: {
           Agricoltore: res.agricoltore,
           Supervisore: res.supervisore,
@@ -126,12 +129,12 @@ const handleSearch = async () => {
           Corriere: res.corriere,
           Distributore: res.distributore,
         },
-        timestamps: tsArray.slice(1),
-        luoghi: soloLuoghiGeografici.slice(1),
-        motivazione: statoIdx === 8 ? notaProblema : null
+        timestamps: timestampsPuliti.slice(1),
+        luoghi: luoghiPuliti.slice(1),
+        motivazione: rawStato === 8 ? notaProblema : null
       };
     } else {
-      showToast("Lotto non trovato (potrebbe essere stato eliminato)", "warning");
+      showToast("Lotto non trovato sul registro", "warning");
     }
   } catch (err) {
     console.error("Errore ricerca lotto:", err);

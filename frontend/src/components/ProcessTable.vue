@@ -15,82 +15,87 @@
           <td colspan="4" class="empty-msg">Nessun lotto presente.</td>
         </tr>
 
-        <tr v-for="lotto in lotti" :key="lotto.id" :class="{ 'row-revisione': lotto.stato === 'revisione' }">
-          <td class="id-cell">#{{ lotto.id }}</td>
+        <template v-for="lotto in lotti" :key="lotto.id">
+          <tr 
+            v-if="lotto.stato !== 'revisione' || userRole === 'ADMIN'"
+            :class="{ 'row-revisione': lotto.stato === 'revisione' }"
+          >
+            <td class="id-cell">#{{ lotto.id }}</td>
 
-          <td>
-            <div class="type-progress-col">
-              <span :class="['badge', badgeClass(lotto.tipo)]">
-                {{ lotto.tipo }}
-              </span>
+            <td>
+              <div class="type-progress-col">
+                <span :class="['badge', badgeClass(lotto.tipo)]">
+                  {{ lotto.tipo }}
+                </span>
 
-              <div class="progress-container">
-                <div
-                  class="progress-bar"
-                  :style="{ width: getProgressWidth(lotto.stato) }"
-                ></div>
-              </div>
-            </div>
-          </td>
-
-          <td>
-            <div class="status-flex-container">
-              <span :class="['status-pill', lotto.stato]">
-                {{ lotto.stato === 'revisione' ? 'Bloccato' : STATUS_LABELS[lotto.stato] }}
-              </span>
-
-              <div v-if="lotto.stato === 'revisione'" class="postit-container">
-                <div class="postit-circle-icon">?</div>
-                <div class="postit-tooltip">
-                  <p class="tooltip-title">Nota di segnalazione:</p>
-                  <p class="tooltip-text">{{ getMotivazioneCompleta(lotto) }}</p>
+                <div class="progress-container">
+                  <div
+                    class="progress-bar"
+                    :style="{ width: getProgressWidth(lotto.stato) }"
+                  ></div>
                 </div>
               </div>
-            </div>
-          </td>
+            </td>
 
-          <td class="actions-cell">
-            <div class="btn-group">
-              
-              <template v-if="lotto.stato !== 'revisione'">
-                <button
-                  v-for="step in STEPS"
-                  :key="step.label"
-                  class="btn-step"
-                  :disabled="!canAdvance(step, lotto)"
-                  @click="handleAdvance(lotto)"
-                >
-                  {{ step.icon }} {{ step.label }}
-                </button>
+            <td>
+              <div class="status-flex-container">
+                <span :class="['status-pill', lotto.stato]">
+                  {{ lotto.stato === 'revisione' ? 'Bloccato' : STATUS_LABELS[lotto.stato] }}
+                </span>
 
-                <template v-for="step in STEPS" :key="'fail-' + step.label">
+                <div v-if="lotto.stato === 'revisione'" class="postit-container">
+                  <div class="postit-circle-icon">?</div>
+                  <div class="postit-tooltip">
+                    <p class="tooltip-title">Nota di segnalazione:</p>
+                    <p class="tooltip-text">{{ getMotivazioneCompleta(lotto) }}</p>
+                  </div>
+                </div>
+              </div>
+            </td>
+
+            <td class="actions-cell">
+              <div class="btn-group">
+                
+                <template v-if="lotto.stato !== 'revisione'">
                   <button
-                    v-if="userRole !== 'ADMIN' && canAdvance(step, lotto)"
-                    class="btn-fail"
-                    @click="handleFail(lotto)"
+                    v-for="step in STEPS"
+                    :key="step.label"
+                    class="btn-step"
+                    :disabled="!canAdvance(step, lotto)"
+                    @click="handleAdvance(lotto)"
                   >
-                    ⚠️ Segnala
+                    {{ step.icon }} {{ step.label }}
+                  </button>
+
+                  <template v-for="step in STEPS" :key="'fail-' + step.label">
+                    <button
+                      v-if="userRole !== 'ADMIN' && canAdvance(step, lotto)"
+                      class="btn-fail"
+                      @click="handleFail(lotto)"
+                    >
+                      ⚠️ Segnala
+                    </button>
+                  </template>
+                </template>
+
+                <template v-else-if="userRole === 'ADMIN'">
+                  <button class="btn-approve" @click="handleRiabilita(lotto)">
+                    ✅ Sblocca
+                  </button>
+                  <button class="btn-delete" @click="$emit('elimina', lotto)">
+                    🗑️ Elimina
                   </button>
                 </template>
-              </template>
 
-              <template v-else-if="userRole === 'ADMIN'">
-                <button class="btn-approve" @click="handleRiabilita(lotto)">
-                  ✅ Sblocca
-                </button>
-                <button class="btn-delete" @click="$emit('elimina', lotto)">
-                  🗑️ Elimina
-                </button>
-              </template>
+                <span v-else class="lock-msg">
+                  🔒 In revisione
+                </span>
 
-              <span v-else class="lock-msg">
-                🔒 In revisione
-              </span>
-
-              <IspezionaButton :lotto="lotto" />
-            </div>
-          </td>
-        </tr>
+                <IspezionaButton :lotto="lotto" />
+              </div>
+            </td>
+          </tr>
+        </template>
       </tbody>
     </table>
   </div>
@@ -109,7 +114,7 @@ const props = defineProps({
 });
 
 onMounted(() => {
-  console.log("LOG 1 [Tabella]: Caricata versione con Post-it Statico");
+  console.log("Tabella Processi: Filtro di sicurezza ADMIN attivato");
 });
 
 const STATUS_LABELS = {
@@ -183,7 +188,6 @@ const handleRiabilita = (lotto) => {
   gap: 12px;
 }
 
-/* Tooltip Post-it Statico */
 .postit-container {
   position: relative;
   display: flex;
@@ -193,7 +197,7 @@ const handleRiabilita = (lotto) => {
 .postit-circle-icon {
   width: 22px;
   height: 22px;
-  background-color:black; 
+  background-color: black; 
   color: white;
   border-radius: 50%;
   display: flex;
@@ -202,7 +206,6 @@ const handleRiabilita = (lotto) => {
   font-size: 14px;
   font-weight: bold;
   cursor: help;
-  /* Nessuna trasformazione all'hover per stabilità visiva */
 }
 
 .postit-tooltip {
@@ -256,7 +259,6 @@ const handleRiabilita = (lotto) => {
   word-wrap: break-word;
 }
 
-/* Row Styling */
 .row-revisione td {
   background-color: #fff5f5 !important;
 }
@@ -274,7 +276,6 @@ const handleRiabilita = (lotto) => {
   color: white;
 }
 
-/* Bottoni */
 .btn-fail {
   background: none;
   border: 1px solid #e17055;
@@ -300,18 +301,18 @@ const handleRiabilita = (lotto) => {
   cursor: pointer;
   font-weight: 700;
 }
-.btn-approve:hover { opacity: 1; color: black; }
-
+.btn-approve:hover { color: black; background: #55efc4; }
 
 .btn-delete {
   background: #d63031;
+  color: white;
   border: none;
   padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 700;
 }
-.btn-delete:hover { opacity: 1; color: black; }
+.btn-delete:hover { background: #ff7675; }
 
 .btn-group { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; align-items: center; }
 
@@ -328,21 +329,31 @@ const handleRiabilita = (lotto) => {
   font-weight: 700;
   font-size: 0.85rem;
 }
-.lock-msg{
-  background: #1a1a1a;
+
+.lock-msg {
+  background: #2d3436;
   color: white;
-  border: none;
   padding: 8px 12px;
   border-radius: 6px;
-  cursor: pointer;
-  transition: 0.2s;
-  font-size: 15px;
+  font-size: 0.8rem;
+  font-weight: bold;
 }
-.lock-msg:hover { background: #c0392b; }
 
 .btn-step:disabled { display: none; }
 .btn-step:hover { background: #800020; color: white; }
 
 .process-table { width: 100%; border-collapse: separate; border-spacing: 0 10px; }
 .process-table td { padding: 14px; background: white; border-top: 1px solid #eee; border-bottom: 1px solid #eee; text-align: center; vertical-align: middle; }
+
+.empty-msg { padding: 40px !important; color: #999; font-style: italic; }
+
+/* Badge colors */
+.badge { padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; display: inline-block; }
+.b-rosso { background: #ff7675; color: white; }
+.b-bianco { background: #dfe6e9; color: #2d3436; border: 1px solid #b2bec3; }
+.b-rosa { background: #fd79a8; color: white; }
+
+.type-progress-col { display: flex; flex-direction: column; align-items: center; }
+.progress-container { width: 100px; height: 6px; background: #eee; border-radius: 10px; overflow: hidden; }
+.progress-bar { height: 100%; background: #00b894; transition: width 0.3s ease; }
 </style>
