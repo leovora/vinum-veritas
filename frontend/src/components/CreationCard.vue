@@ -51,17 +51,6 @@
         <div v-else key="final" class="step-container final-confirmation">
           <label class="step-label">Resoconto</label>
 
-          <div class="quantity-selector">
-            <input
-              v-model="quantita"
-              type="number"
-              min="1"
-              max="10"
-              class="input-qta"
-            />
-            <span class="lotti-text">N. lotti da creare</span>
-          </div>
-
           <div class="summary-box">
             <p><strong>Verifica Filiera Completa:</strong></p>
             <ul class="summary-list">

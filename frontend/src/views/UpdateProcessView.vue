@@ -67,6 +67,7 @@ const getStatusLabel = (stato) =>
 
 /**
  * Caricamento lotti dal contratto intelligente
+ * Logica sincronizzata con HistoryView per evitare sfasamenti tra Fasi e Timestamp
  */
 const loadLotti = async () => {
   if (!contractInstance.value) return;
@@ -84,19 +85,41 @@ const loadLotti = async () => {
         "spedito",
         "distribuito",
         "completato",
-        "revisione", // Indice 8 nel contratto
+        "revisione",
       ];
 
-      const statoStr = statiMappa[Number(l.stato)] || "finito";
+      const rawStato = Number(l.stato);
+      const statoStr = statiMappa[rawStato] || "finito";
       const tsArray = l.timestamps?.map((t) => Number(t)) || [];
       const luoghiArray = l.luoghi || [];
+
+      // --- LOGICA DI FILTRAGGIO IDENTICA ALLA HISTORY ---
+      const faseTimestamps = [];
+      const faseLuoghi = [];
+
+      // Partiamo dall'indice 1 per saltare la creazione tecnica
+      // e filtriamo i messaggi tecnici (PROBLEMA / Riabilitato)
+      for (let i = 1; i < luoghiArray.length; i++) {
+        const luogo = luoghiArray[i];
+        
+        if (!luogo.includes("PROBLEMA:") && !luogo.includes("Riabilitato")) {
+          faseLuoghi.push(luogo);
+          faseTimestamps.push(tsArray[i]);
+        }
+      }
+
+      // IMPORTANTE: statoRaw deve corrispondere al numero di fasi reali salvate
+      // se il lotto è completato o in revisione, altrimenti usiamo lo stato numerico
+      const statoApparente = rawStato === 8 || rawStato === 7 
+        ? faseLuoghi.length 
+        : rawStato;
 
       return {
         blockchainIndex: index,
         id: l.id.toString(),
         tipo: l.tipo,
         stato: statoStr,
-        statoRaw: Number(l.stato),
+        statoRaw: statoApparente, 
         statusLabel: getStatusLabel(statoStr),
         statusClass: `status-${l.stato}`,
         actors: {
@@ -106,8 +129,12 @@ const loadLotti = async () => {
           Corriere: l.corriere,
           Distributore: l.distributore,
         },
-        timestamps: tsArray.slice(1),
-        luoghi: luoghiArray,
+        // Inviando gli array filtrati, la LottoCard non avrà più buchi o sfasamenti
+        timestamps: faseTimestamps,
+        luoghi: faseLuoghi,
+        // Dati aggiuntivi per la LottoCard (alert rosso se bloccato)
+        statoRawVero: rawStato,
+        motivazione: rawStato === 8 ? luoghiArray.findLast(x => x.includes("PROBLEMA:"))?.replace("PROBLEMA: ", "") : null
       };
     });
   } catch (err) {

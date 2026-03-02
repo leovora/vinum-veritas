@@ -74,9 +74,6 @@ const getStatusLabel = (stato) => ({
   revisione: "⚠️ In attesa di revisione",
 }[stato] || "Finito");
 
-/* =========================
-   LOAD LOTTI (Lettura Blockchain)
-========================= */
 const loadLotti = async () => {
   if (!contractInstance.value) return;
 
@@ -90,17 +87,40 @@ const loadLotti = async () => {
         "imbottigliato", "spedito", "distribuito", "completato", "revisione"
       ];
 
-      const statoRaw = Number(l.stato);
-      const statoStr = statiMappa[statoRaw] || "finito";
+      const rawStatoBlockchain = Number(l.stato);
+      const rawLuoghi = l.luoghi || [];
+      const rawTimestamps = l.timestamps?.map((t) => Number(t)) || [];
+
+      // --- NUOVA LOGICA DI SINCRONIZZAZIONE ---
+      // Filtriamo i log tecnici (PROBLEMA, Riabilitato) e la Creazione (indice 0)
+      const indiciValidi = [];
+      const luoghiPuliti = [];
+      
+      rawLuoghi.forEach((luogo, idx) => {
+        const isTecnico = luogo.includes("PROBLEMA:") || luogo.includes("Riabilitato");
+        const isCreazione = luogo.includes("Creazione lotto");
+
+        if (!isTecnico && !isCreazione) {
+          indiciValidi.push(idx);
+          luoghiPuliti.push(luogo);
+        }
+      });
+
+      // Prendiamo i timestamp che corrispondono SOLO ai luoghi reali
+      const timestampsPuliti = rawTimestamps.filter((_, idx) => indiciValidi.includes(idx));
+
+      // Se in revisione, lo stato visuale deve corrispondere al numero di fasi reali completate
+      const statoVisuale = rawStatoBlockchain === 8 ? luoghiPuliti.length : rawStatoBlockchain;
 
       return {
         blockchainIndex: index,
         id: l.id.toString(),
         tipo: l.tipo,
-        stato: statoStr,
-        statoRaw: statoRaw,
-        statusLabel: getStatusLabel(statoStr),
-        statusClass: statoStr, // classe CSS (es: .revisione)
+        stato: statiMappa[rawStatoBlockchain] || "finito",
+        statoRaw: statoVisuale,           
+        statoRawVero: rawStatoBlockchain,   
+        statusLabel: getStatusLabel(statiMappa[rawStatoBlockchain]),
+        statusClass: statiMappa[rawStatoBlockchain],
         actors: {
           Agricoltore: l.agricoltore,
           Supervisore: l.supervisore,
@@ -108,12 +128,12 @@ const loadLotti = async () => {
           Corriere: l.corriere,
           Distributore: l.distributore,
         },
-        timestamps: l.timestamps?.map(t => Number(t)) || [],
-        luoghi: l.luoghi || [],
+        // ARRAY GIÀ ALLINEATI: Non serve più fare slice(1) altrove
+        timestamps: timestampsPuliti,
+        luoghi: luoghiPuliti,
       };
     })
-    // Filtro: includiamo i lotti attivi (<7) e quelli bloccati (8)
-    .filter((l) => l.statoRaw < 7 || l.statoRaw === 8);
+    .filter((l) => l.statoRawVero < 7 || l.statoRawVero === 8);
 
   } catch (err) {
     console.error("Errore caricamento lotti:", err);

@@ -1,19 +1,3 @@
-<template>
-  <div>
-    <button @click="openDialog" class="btn-ispeziona">
-      🔍 Ispeziona
-    </button>
-
-    <div v-if="dialogVisible" class="dialog-overlay" @click.self="closeDialog">
-      <div class="dialog-content show">
-        <div class="dialog-scroll">
-          <LottoCard :lotto="lottoPulito" />
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup>
 import { ref, computed } from 'vue';
 import LottoCard from './LottoCard.vue';
@@ -28,44 +12,53 @@ const closeDialog = () => { dialogVisible.value = false; };
 
 /**
  * COMPUTED: lottoPulito
- * Filtra i dati tecnici per mostrare solo la cronologia reale nella modale.
+ * Risolve lo sfasamento dei dati e la sparizione dei timestamp
  */
 const lottoPulito = computed(() => {
   if (!props.lotto) return null;
 
-  const rawStato = Number(props.lotto.statoRawVero || props.lotto.statoRaw);
-  const isRevisione = rawStato === 8;
+  // Se i dati hanno già rimosso "Creazione lotto" (controllando il primo luogo), 
+  // allora non facciamo più alcuno slice.
+  const giaFiltrato = props.lotto.luoghi.length > 0 && 
+                      !props.lotto.luoghi[0].includes("Creazione lotto");
 
+  if (giaFiltrato) {
+    return {
+      ...props.lotto,
+      inRevisione: props.lotto.statoRawVero === 8
+    };
+  }
+
+  // Se per qualche motivo arrivassero dati "sporchi" (grezzi dalla blockchain)
+  // allora applichiamo il filtro di emergenza
   const luoghiReali = props.lotto.luoghi.filter(l => 
-    !l.includes("Creazione lotto") && 
-    !l.includes("PROBLEMA:") && 
-    !l.includes("Riabilitato")
+    !l.includes("Creazione lotto") && !l.includes("PROBLEMA:") && !l.includes("Riabilitato")
   );
-
-  const numeroFasiEffettive = isRevisione 
-    ? luoghiReali.length 
-    : (rawStato > 7 ? 7 : rawStato);
-
-  const timestampsPuliti = props.lotto.timestamps
-    .map(t => Number(t))
-    .slice(1, numeroFasiEffettive + 1);
-
-  const statoGrafico = isRevisione ? numeroFasiEffettive : rawStato;
-
-  const notaProblema = props.lotto.luoghi
-    .findLast(l => l.includes("PROBLEMA:"))
-    ?.replace("PROBLEMA: ", "");
 
   return {
     ...props.lotto,
-    statoRaw: statoGrafico, 
     luoghi: luoghiReali,
-    timestamps: timestampsPuliti,
-    motivazione: isRevisione ? notaProblema : null,
-    inRevisione: isRevisione
+    timestamps: props.lotto.timestamps.slice(1), // Solo qui facciamo lo slice se necessario
+    inRevisione: props.lotto.statoRawVero === 8
   };
 });
 </script>
+
+<template>
+  <div>
+    <button @click="openDialog" class="btn-ispeziona">
+      🔍 Ispeziona
+    </button>
+
+    <div v-if="dialogVisible" class="dialog-overlay" @click.self="closeDialog">
+      <div class="dialog-content show">
+        <div class="dialog-scroll">
+          <LottoCard v-if="lottoPulito" :lotto="lottoPulito" />
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .btn-ispeziona {
@@ -76,6 +69,7 @@ const lottoPulito = computed(() => {
   border-radius: 6px;
   cursor: pointer;
   transition: 0.2s;
+  font-weight: 600;
 }
 .btn-ispeziona:hover { background: #c0392b; }
 
@@ -83,7 +77,7 @@ const lottoPulito = computed(() => {
   position: fixed;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0,0,0,0.6);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -94,9 +88,9 @@ const lottoPulito = computed(() => {
   background: white;
   padding: 20px;
   border-radius: 12px;
-  max-width: 95%;      
-  max-height: 90vh;    
-  width: 850px; 
+  max-width: 95%;
+  max-height: 90vh;
+  width: 850px;
   display: flex;
   flex-direction: column;
   box-shadow: 0 10px 30px rgba(0,0,0,0.3);
@@ -112,20 +106,10 @@ const lottoPulito = computed(() => {
 
 .dialog-scroll {
   overflow-y: auto;
-  overflow-x: auto; 
-  padding: 5px; 
+  overflow-x: auto;
+  padding: 5px;
 }
 
-/* Personalizzazione barre di scorrimento */
-.dialog-scroll::-webkit-scrollbar {
-  width: 6px;
-  height: 6px; 
-}
-.dialog-scroll::-webkit-scrollbar-thumb {
-  background: #ddd;
-  border-radius: 10px;
-}
-.dialog-scroll::-webkit-scrollbar-thumb:hover {
-  background: #ccc;
-}
+.dialog-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.dialog-scroll::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
 </style>

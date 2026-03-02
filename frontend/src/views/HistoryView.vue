@@ -98,18 +98,33 @@ const loadHistory = async () => {
       const tsArray = l.timestamps?.map((t) => Number(t)) || [];
       const luoghiArray = l.luoghi || [];
 
-      const faseTimestamps = tsArray.slice(1);
-      const faseLuoghi = luoghiArray.slice(1);
+      const faseTimestamps = [];
+      const faseLuoghi = [];
+
+      // Partiamo da 1 per saltare la creazione tecnica (index 0)
+      for (let i = 1; i < luoghiArray.length; i++) {
+        const luogo = luoghiArray[i];
+        
+        // FILTRAGGIO CRUCIALE:
+        // Aggiungiamo alla lista SOLO se il luogo non è un messaggio di errore o riabilitazione
+        if (!luogo.includes("PROBLEMA:") && !luogo.includes("Riabilitato")) {
+          faseLuoghi.push(luogo);
+          faseTimestamps.push(tsArray[i]);
+        }
+      }
+
+      const rawStato = Number(l.stato);
 
       return {
         id: l.id.toString(),
         tipo: l.tipo,
-        statoRaw: Number(l.stato),
-        statusLabel: STATUS_LABELS[Number(l.stato)] || "Finito",
+        // IMPORTANTE: statoRaw deve corrispondere al numero di fasi REALI completate
+        // per evitare che la tabella cerchi dati inesistenti
+        statoRaw: rawStato === 7 ? faseLuoghi.length : rawStato, 
+        statusLabel: STATUS_LABELS[rawStato] || "Finito",
         statusClass: `status-${l.stato}`,
-        data:
-          tsArray.length > 0
-            ? new Date(tsArray[tsArray.length - 1] * 1000).toLocaleDateString("it-IT")
+        data: faseTimestamps.length > 0
+            ? new Date(faseTimestamps[faseTimestamps.length - 1] * 1000).toLocaleDateString("it-IT")
             : "In attesa...",
         actors: {
           Agricoltore: l.agricoltore,
