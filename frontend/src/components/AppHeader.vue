@@ -16,8 +16,6 @@
                   {{ link.label }}
                 </RouterLink>
               </li>
-              <li class="divider"></li>
-              <li @click="logout" class="logout">🚪 Logout</li>
             </ul>
           </nav>
         </div>
@@ -76,18 +74,6 @@ const menuLinks = [
 const visibleLinks = computed(() =>
   menuLinks.filter((link) => link.roles.includes(userStore.role))
 );
-
-const logout = () => {
-  // 1. Pulisce i dati nel Pinia Store
-  userStore.logout(); 
-
-  // 2. Chiude il menu a tendina
-  closeMenu();
-
-  // 3. Reindirizza l'utente alla SplashScreen o alla Home
-  router.push("/");
-
-};
 </script>
 
 <style scoped>
