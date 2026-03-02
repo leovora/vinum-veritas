@@ -148,8 +148,14 @@ const STEPS = [
   { stato: "spedito", role: "DISTRIBUTORE", label: "Ricezione", icon: "🏢" },
 ];
 
+// In ProcessTable.vue
 const getMotivazioneCompleta = (lotto) => {
-  const entry = lotto.luoghi.findLast(l => l.includes("PROBLEMA: "));
+  // Se abbiamo già estratto la motivazione nel mapping, usiamo quella
+  if (lotto.motivazione) return lotto.motivazione;
+  
+  // Altrimenti cerchiamo nell'array originale (se presente)
+  const arrayRicerca = lotto.luoghiOriginali || lotto.luoghi;
+  const entry = arrayRicerca.findLast(l => l.includes("PROBLEMA:"));
   return entry ? entry.replace("PROBLEMA: ", "") : "Nessun dettaglio fornito.";
 };
 

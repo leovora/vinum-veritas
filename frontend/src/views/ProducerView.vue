@@ -91,8 +91,7 @@ const loadLotti = async () => {
       const rawLuoghi = l.luoghi || [];
       const rawTimestamps = l.timestamps?.map((t) => Number(t)) || [];
 
-      // --- NUOVA LOGICA DI SINCRONIZZAZIONE ---
-      // Filtriamo i log tecnici (PROBLEMA, Riabilitato) e la Creazione (indice 0)
+      // --- FILTRAGGIO PER LA TIMELINE ---
       const indiciValidi = [];
       const luoghiPuliti = [];
       
@@ -106,11 +105,13 @@ const loadLotti = async () => {
         }
       });
 
-      // Prendiamo i timestamp che corrispondono SOLO ai luoghi reali
       const timestampsPuliti = rawTimestamps.filter((_, idx) => indiciValidi.includes(idx));
-
-      // Se in revisione, lo stato visuale deve corrispondere al numero di fasi reali completate
       const statoVisuale = rawStatoBlockchain === 8 ? luoghiPuliti.length : rawStatoBlockchain;
+
+      // --- ESTRAZIONE MOTIVAZIONE (Logica corretta) ---
+      // Cerchiamo nell'array ORIGINALE (rawLuoghi) perché in quello pulito non c'è più!
+      const notaTecnica = rawLuoghi.findLast(x => x.includes("PROBLEMA:"));
+      const motivazioneEstratta = notaTecnica ? notaTecnica.replace("PROBLEMA: ", "") : null;
 
       return {
         blockchainIndex: index,
@@ -128,9 +129,10 @@ const loadLotti = async () => {
           Corriere: l.corriere,
           Distributore: l.distributore,
         },
-        // ARRAY GIÀ ALLINEATI: Non serve più fare slice(1) altrove
         timestamps: timestampsPuliti,
-        luoghi: luoghiPuliti,
+        luoghi: luoghiPuliti, // Array per la cronologia visuale (pulita)
+        luoghiOriginali: rawLuoghi, // <--- FONDAMENTALE per il tooltip della tabella
+        motivazione: motivazioneEstratta // <--- FONDAMENTALE per il "Post-it" e la LottoCard
       };
     })
     .filter((l) => l.statoRawVero < 7 || l.statoRawVero === 8);
