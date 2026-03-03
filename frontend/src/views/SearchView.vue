@@ -92,6 +92,7 @@ const handleSearch = async () => {
       id: lottoData.id.toString(),
       tipo: lottoData.tipo,
       statoRaw: statoFilieraRaw,
+      eliminato: statoControlloRaw === 2,
       inRevisione: statoControlloRaw === 1,
       motivazione: lottoData.motivoRevisione,
       timestamps: storico.slice(1).map(e => Number(e.timestamp)),
@@ -104,6 +105,8 @@ const handleSearch = async () => {
           distributore: lottoData.distributore,
         }
     };
+
+    console.log("AAAAA" + lottoDettaglio.value.statoControllo)
 
   } catch (err) {
     showToast("Lotto inesistente", "error");

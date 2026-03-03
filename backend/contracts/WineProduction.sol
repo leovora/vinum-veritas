@@ -26,7 +26,8 @@ contract WineProduction {
     // ===================== STATO AMMINISTRATIVO =====================
     enum StatoControllo {
         Attivo,
-        InRevisione
+        InRevisione,
+        Eliminato
     }
 
     // ===================== STORICO STRUTTURATO =====================
@@ -77,6 +78,7 @@ contract WineProduction {
     event StatoAvanzato(uint256 indexed lottoId, StatoFiliera nuovoStato);
     event LottoInRevisione(uint256 indexed lottoId, string motivo, address segnalatore);
     event LottoRiabilitato(uint256 indexed lottoId, StatoFiliera statoRipristinato);
+    event LottoEliminato(uint256 indexed lottoId);
 
     // ===================== COSTRUTTORE =====================
     constructor() {
@@ -125,6 +127,17 @@ contract WineProduction {
         lottoIds.push(id);
 
         emit LottoCreato(id);
+    }
+
+    function eliminaLotto(uint256 _id) external onlyAdmin {
+        Lotto storage l = lotti[_id];
+
+        require(l.statoControllo == StatoControllo.InRevisione,
+            "Non in revisione");
+
+        l.statoControllo = StatoControllo.Eliminato;
+
+        emit LottoEliminato(_id);
     }
 
     // ===================== AVANZA STATO =====================

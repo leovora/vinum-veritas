@@ -11,11 +11,11 @@
       </thead>
 
       <tbody>
-        <tr v-if="lotti.length === 0">
+        <tr v-if="visibleLotti.length === 0">
           <td colspan="4" class="empty-msg">Nessun lotto presente.</td>
         </tr>
 
-        <template v-for="lotto in lotti" :key="lotto.id">
+        <template v-for="lotto in visibleLotti" :key="lotto.id">
           <tr :class="{ 'row-revisione': lotto.inRevisione }">
             <td class="id-cell">#{{ lotto.id }}</td>
 
@@ -36,12 +36,9 @@
 
             <td>
               <div class="status-flex-container">
-                <!-- Pillola di stato: mostra "Bloccato" se il lotto è in revisione -->
                 <span :class="['status-pill', lotto.stato]">
                   {{ lotto.inRevisione ? 'Bloccato' : STATUS_LABELS[lotto.stato] }}
                 </span>
-
-                <!-- Post-it con motivazione solo se il lotto è in revisione -->
                 <div v-if="lotto.inRevisione" class="postit-container">
                   <div class="postit-circle-icon">?</div>
                   <div class="postit-tooltip">
@@ -82,7 +79,7 @@
                   <button class="btn-approve" @click="handleRiabilita(lotto)">
                     ✅ Sblocca
                   </button>
-                  <button class="btn-delete" @click="$emit('elimina', lotto)">
+                  <button class="btn-delete" @click="handleElimina(lotto)">
                     🗑️ Elimina
                   </button>
                 </template>
@@ -103,19 +100,25 @@
 </template>
 
 <script setup>
-import { onMounted } from "vue";
+import { ref, computed, inject } from "vue";
+import { useToast } from '../components/utils/useToast.js';
 import IspezionaButton from "./IspezionaButton.vue";
+import { useUserStore } from "../stores/user";
 
+
+const contractInstance = inject("contractInstance");
 const emit = defineEmits(["elimina", "fallimento", "riabilita"]);
+
+const userStore = useUserStore();
+const userRole = computed(() => userStore.role?.toUpperCase());
+const userAddress = computed(() => userStore.account);
+
+const { showToast } = useToast();
 
 const props = defineProps({
   lotti: { type: Array, required: true },
   userRole: { type: String, required: true },
   avanza: { type: Function, default: null },
-});
-
-onMounted(() => {
-  console.log("Tabella Processi: Filtro di sicurezza ADMIN attivato");
 });
 
 const STATUS_LABELS = {
@@ -178,6 +181,20 @@ const handleFail = (lotto) => {
 const handleRiabilita = (lotto) => {
   emit('riabilita', lotto);
 };
+
+const visibleLotti = computed(() => {
+  return props.lotti.filter(lotto => {
+
+    if (lotto.statoControllo === "eliminato") return false;
+    if (lotto.statoRaw === 6) return false;
+    if (lotto.inRevisione) {
+      return userRole.value === "ADMIN" || userAddress.value === lotto.segnalatore;
+    }
+
+    return true;
+  });
+});
+
 </script>
 
 <style scoped>

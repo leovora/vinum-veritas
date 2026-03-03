@@ -76,7 +76,8 @@ const loadLotti = async () => {
 
     const statoControlloMap = [
       "attivo",
-      "revisione"
+      "revisione",
+      "eliminato"
     ];
 
     const lottiCaricati = [];

@@ -30,6 +30,7 @@ const lottoPulito = computed(() => {
   if (!props.lotto) return null;
 
   const inRevisione = !!props.lotto.inRevisione;
+  const eliminato = !!props.lotto.eliminato;
   const luoghi = props.lotto.luoghi?.filter(l => !l.includes("Creazione lotto")) || [];
   const timestampsPuliti = props.lotto.timestamps?.slice(luoghi.length === props.lotto.luoghi.length ? 0 : 1) || [];
 
@@ -39,6 +40,7 @@ const lottoPulito = computed(() => {
     ...props.lotto,
     luoghi: luoghi,
     timestamps: timestampsPuliti,
+    eliminato,
     inRevisione,
     motivazione: props.lotto.motivazione || null
   };

@@ -1,14 +1,18 @@
 <template>
   <div class="lotto-card card animate-fade-in">
     <div
-      v-if="lotto.statoRawVero === 8 || lotto.inRevisione"
+      v-if="lotto.inRevisione || lotto.eliminato"
       class="alert-revisione"
     >
       <div class="alert-icon">⚠️</div>
       <div class="alert-content">
-        <p class="alert-title">Lotto in Fase di Revisione</p>
+        <p class="alert-title">
+          {{ lotto.inRevisione ? "Lotto in revisione" : "Lotto bloccato" }}
+        </p>
         <p class="alert-desc">
-          Il monitoraggio ha rilevato un'incongruenza. <br />
+          <p v-if="lotto.inRevisione">Il lotto è in attesa di revisione dall'admin</p>
+          <p v-if="lotto.eliminato">Il lotto è stato bloccato dall'admin</p>
+        </br>
           <strong>Motivazione:</strong>
           {{ lotto.motivazione || "Analisi tecnica in corso" }}
         </p>
@@ -92,8 +96,6 @@ const props = defineProps({
     required: true,
   },
 });
-
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const PHASES = [
   { name: "Vendemmia", role: "agricoltore" },

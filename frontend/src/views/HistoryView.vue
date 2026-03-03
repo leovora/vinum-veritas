@@ -100,7 +100,8 @@ const loadHistory = async () => {
 
     const statoControlloMap = [
       "attivo",
-      "revisione"
+      "revisione",
+      "eliminato"
     ];
 
     const lottiCaricati = [];
@@ -122,6 +123,12 @@ const loadHistory = async () => {
       const timestamps = storico.map(e => Number(e.timestamp));
       const luoghi = storico.map(e => e.luogo);
 
+      const getStatusLabel = (statoFilieraRaw, statoControlloRaw) => {
+        if (statoControlloRaw === 1) return "In revisione";
+        if (statoControlloRaw === 2) return "Bloccato";
+        return statoFilieraMap[statoFilieraRaw];
+      };
+
       lottiCaricati.push({
         id: lottoData.id.toString(),
         tipo: lottoData.tipo,
@@ -132,12 +139,11 @@ const loadHistory = async () => {
         stato: statoFilieraMap[statoFilieraRaw],
         statoControllo: statoControlloMap[statoControlloRaw],
         inRevisione: statoControlloRaw === 1,
+        eliminato: statoControlloRaw === 2,
 
-        statusLabel: statoControlloRaw === 1
-          ? "Bloccato"
-          : statoFilieraMap[statoFilieraRaw],
+        statusLabel: getStatusLabel(statoFilieraRaw, statoControlloRaw),
 
-        statusClass: statoControlloRaw === 1
+        statusClass: statoControlloRaw === 1 || statoControlloRaw === 2
           ? "status-revisione"
           : `status-${statoFilieraMap[statoFilieraRaw]}`,
 

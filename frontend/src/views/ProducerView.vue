@@ -77,6 +77,8 @@ const loadLotti = async () => {
       const lottoData = await contractInstance.value.methods
         .getLotto(id)
         .call();
+      
+      console.log("STATO:" + lottoData.stato)
 
       const storico = await contractInstance.value.methods
         .getStorico(id)
@@ -95,7 +97,8 @@ const loadLotti = async () => {
 
       const statoControlloMap = [
         "attivo",
-        "revisione"
+        "revisione",
+        "eliminato"
       ];
 
       const statoFilieraRaw = Number(lottoData.stato);
@@ -136,7 +139,7 @@ const loadLotti = async () => {
   }
 };
 
-const activeLotti = computed(() => lotti.value.filter(l => l.stato !== "finito"));
+const activeLotti = computed(() => lotti.value.filter(l => l.statoRaw !== 6));
 
 /* =========================
    PONTE EVENTI (Tabella -> App.vue)
@@ -148,6 +151,21 @@ const handleFallimentoEvent = (data) => {
 
 const handleRiabilitaEvent = (lotto) => {
   if (onRiabilitaLotto) onRiabilitaLotto(lotto, loadLotti);
+};
+
+const handleEliminaLotto = async (lotto) => {
+  try {
+    await contractInstance.value.methods
+      .eliminaLotto(lotto.id)
+      .send({ from: userStore.account });
+
+    showToast("Lotto eliminato con successo", "success");
+
+    // Aggiorna i lotti locali per nascondere quello eliminato
+    lotti.value = lotti.value.filter(l => l.id !== lotto.id);
+  } catch (err) {
+    showToast("Errore eliminazione lotto", "error");
+  }
 };
 
 /* =========================
@@ -166,17 +184,6 @@ const creaLotti = async (tipo, quantita, selections) => {
     showToast("Lotti creati con successo", "success");
   } catch (err) {
     showToast("Errore creazione", "error");
-  } finally { loading.value = false; }
-};
-
-// --- Elimina lotto: usa l'ID reale, non blockchainIndex ---
-const handleEliminaLotto = async (lotto) => {
-  if (userRole.value !== "ADMIN") return;
-  if (!confirm("Eliminare definitivamente?")) return;
-  loading.value = true;
-  try {
-    await contractInstance.value.methods.eliminaLotto(lotto.id).send({ from: userAddress.value });
-    await loadLotti();
   } finally { loading.value = false; }
 };
 
