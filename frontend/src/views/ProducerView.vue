@@ -60,82 +60,73 @@ const loading = ref(false);
 const userRole = computed(() => userStore.role?.toUpperCase());
 const userAddress = computed(() => userStore.account);
 
-/* =========================
-   UI HELPERS
-========================= */
-const getStatusLabel = (stato) => ({
-  creato: "In attesa di vendemmia",
-  vendemmiato: "Vendemmiato",
-  fermentato: "Fermentato",
-  affinato: "Affinato",
-  imbottigliato: "Imbottigliato",
-  spedito: "Spedito",
-  distribuito: "Ricezione confermata",
-  revisione: "⚠️ In attesa di revisione",
-}[stato] || "Finito");
 
 const loadLotti = async () => {
   if (!contractInstance.value) return;
 
   loading.value = true;
+
   try {
-    const data = await contractInstance.value.methods.getLotti().call();
-    
-    lotti.value = data.map((l, index) => {
-      const statiMappa = [
-        "creato", "vendemmiato", "fermentato", "affinato", 
-        "imbottigliato", "spedito", "distribuito", "completato", "revisione"
+    const ids = await contractInstance.value.methods
+      .getAllLottoIds()
+      .call();
+
+    const lottiCaricati = [];
+
+    for (const id of ids) {
+      const lottoData = await contractInstance.value.methods
+        .getLotto(id)
+        .call();
+
+      const storico = await contractInstance.value.methods
+        .getStorico(id)
+        .call();
+
+      const statoFilieraMap = [
+        "creato",
+        "vendemmiato",
+        "fermentato",
+        "affinato",
+        "imbottigliato",
+        "spedito",
+        "distribuito",
+        "completato"
       ];
 
-      const rawStatoBlockchain = Number(l.stato);
-      const rawLuoghi = l.luoghi || [];
-      const rawTimestamps = l.timestamps?.map((t) => Number(t)) || [];
+      const statoControlloMap = [
+        "attivo",
+        "revisione"
+      ];
 
-      // --- FILTRAGGIO PER LA TIMELINE ---
-      const indiciValidi = [];
-      const luoghiPuliti = [];
-      
-      rawLuoghi.forEach((luogo, idx) => {
-        const isTecnico = luogo.includes("PROBLEMA:") || luogo.includes("Riabilitato");
-        const isCreazione = luogo.includes("Creazione lotto");
+      const statoFilieraRaw = Number(lottoData.stato);
+      const statoControlloRaw = Number(lottoData.statoControllo);
 
-        if (!isTecnico && !isCreazione) {
-          indiciValidi.push(idx);
-          luoghiPuliti.push(luogo);
+      lottiCaricati.push({
+        id: lottoData.id.toString(),
+        tipo: lottoData.tipo,
+
+        stato: statoFilieraMap[statoFilieraRaw],
+        statoRaw: statoFilieraRaw,
+
+        statoControllo: statoControlloMap[statoControlloRaw],
+        inRevisione: statoControlloRaw === 1,
+
+        motivazione: lottoData.motivoRevisione || null,
+
+        timestamps: storico.map(e => Number(e.timestamp)),
+        luoghi: storico.map(e => e.luogo),
+
+        actors: {
+          agricoltore: lottoData.agricoltore,
+          supervisore: lottoData.supervisore,
+          cantiniere: lottoData.cantiniere,
+          corriere: lottoData.corriere,
+          distributore: lottoData.distributore,
         }
       });
+    }
 
-      const timestampsPuliti = rawTimestamps.filter((_, idx) => indiciValidi.includes(idx));
-      const statoVisuale = rawStatoBlockchain === 8 ? luoghiPuliti.length : rawStatoBlockchain;
-
-      // --- ESTRAZIONE MOTIVAZIONE (Logica corretta) ---
-      // Cerchiamo nell'array ORIGINALE (rawLuoghi) perché in quello pulito non c'è più!
-      const notaTecnica = rawLuoghi.findLast(x => x.includes("PROBLEMA:"));
-      const motivazioneEstratta = notaTecnica ? notaTecnica.replace("PROBLEMA: ", "") : null;
-
-      return {
-        blockchainIndex: index,
-        id: l.id.toString(),
-        tipo: l.tipo,
-        stato: statiMappa[rawStatoBlockchain] || "finito",
-        statoRaw: statoVisuale,           
-        statoRawVero: rawStatoBlockchain,   
-        statusLabel: getStatusLabel(statiMappa[rawStatoBlockchain]),
-        statusClass: statiMappa[rawStatoBlockchain],
-        actors: {
-          Agricoltore: l.agricoltore,
-          Supervisore: l.supervisore,
-          Cantiniere: l.cantiniere,
-          Corriere: l.corriere,
-          Distributore: l.distributore,
-        },
-        timestamps: timestampsPuliti,
-        luoghi: luoghiPuliti, // Array per la cronologia visuale (pulita)
-        luoghiOriginali: rawLuoghi, // <--- FONDAMENTALE per il tooltip della tabella
-        motivazione: motivazioneEstratta // <--- FONDAMENTALE per il "Post-it" e la LottoCard
-      };
-    })
-    .filter((l) => l.statoRawVero < 7 || l.statoRawVero === 8);
+    lotti.value = lottiCaricati;
 
   } catch (err) {
     console.error("Errore caricamento lotti:", err);
@@ -152,11 +143,11 @@ const activeLotti = computed(() => lotti.value.filter(l => l.stato !== "finito")
 ========================= */
 const handleFallimentoEvent = (data) => {
   console.log("ProducerView: Ricevuto segnale di blocco", data);
-  if (onSegnalaProblema) onSegnalaProblema(data);
+  if (onSegnalaProblema) onSegnalaProblema(data, loadLotti);
 };
 
 const handleRiabilitaEvent = (lotto) => {
-  if (onRiabilitaLotto) onRiabilitaLotto(lotto);
+  if (onRiabilitaLotto) onRiabilitaLotto(lotto, loadLotti);
 };
 
 /* =========================
@@ -178,21 +169,29 @@ const creaLotti = async (tipo, quantita, selections) => {
   } finally { loading.value = false; }
 };
 
+// --- Elimina lotto: usa l'ID reale, non blockchainIndex ---
 const handleEliminaLotto = async (lotto) => {
   if (userRole.value !== "ADMIN") return;
   if (!confirm("Eliminare definitivamente?")) return;
   loading.value = true;
   try {
-    await contractInstance.value.methods.eliminaLotto(lotto.blockchainIndex).send({ from: userAddress.value });
+    await contractInstance.value.methods.eliminaLotto(lotto.id).send({ from: userAddress.value });
     await loadLotti();
   } finally { loading.value = false; }
 };
 
+// --- Avanza stato: usa ID reale e blocco revisione ---
 const avanzaStato = async (lotto) => {
   if (userRole.value !== 'ADMIN') return;
+  if (lotto.inRevisione) {
+    showToast("Lotto in revisione. Impossibile avanzare.", "error");
+    return;
+  }
+
   loading.value = true;
   try {
-    await contractInstance.value.methods.avanzaStato(lotto.blockchainIndex, "Aggiornamento Admin").send({ from: userAddress.value });
+    await contractInstance.value.methods.avanzaStato(lotto.id, "Aggiornamento Admin")
+      .send({ from: userAddress.value });
     await loadLotti();
   } catch { showToast("Errore avanzamento", "error"); }
   finally { loading.value = false; }

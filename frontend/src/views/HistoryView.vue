@@ -77,66 +77,90 @@ const contractInstance = inject("contractInstance");
 const lotti = ref([]);
 const loading = ref(true);
 
-const STATUS_LABELS = [
-  "creato",
-  "vendemmiato",
-  "fermentato",
-  "affinato",
-  "imbottigliato",
-  "spedito",
-  "distribuito",
-];
-
 const loadHistory = async () => {
   if (!contractInstance?.value) return;
 
   loading.value = true;
+
   try {
-    const data = await contractInstance.value.methods.getLotti().call();
+    const ids = await contractInstance.value.methods
+      .getAllLottoIds()
+      .call();
 
-    lotti.value = data.map((l) => {
-      const tsArray = l.timestamps?.map((t) => Number(t)) || [];
-      const luoghiArray = l.luoghi || [];
+    const statoFilieraMap = [
+      "creato",
+      "vendemmiato",
+      "fermentato",
+      "affinato",
+      "imbottigliato",
+      "spedito",
+      "distribuito",
+      "completato"
+    ];
 
-      const faseTimestamps = [];
-      const faseLuoghi = [];
+    const statoControlloMap = [
+      "attivo",
+      "revisione"
+    ];
 
-      // Partiamo da 1 per saltare la creazione tecnica (index 0)
-      for (let i = 1; i < luoghiArray.length; i++) {
-        const luogo = luoghiArray[i];
-        
-        // FILTRAGGIO CRUCIALE:
-        // Aggiungiamo alla lista SOLO se il luogo non è un messaggio di errore o riabilitazione
-        if (!luogo.includes("PROBLEMA:") && !luogo.includes("Riabilitato")) {
-          faseLuoghi.push(luogo);
-          faseTimestamps.push(tsArray[i]);
-        }
-      }
+    const lottiCaricati = [];
 
-      const rawStato = Number(l.stato);
+    for (const id of ids) {
+      const lottoData = await contractInstance.value.methods
+        .getLotto(id)
+        .call();
+      
+      console.log(lottoData);
 
-      return {
-        id: l.id.toString(),
-        tipo: l.tipo,
-        // IMPORTANTE: statoRaw deve corrispondere al numero di fasi REALI completate
-        // per evitare che la tabella cerchi dati inesistenti
-        statoRaw: rawStato === 7 ? faseLuoghi.length : rawStato, 
-        statusLabel: STATUS_LABELS[rawStato] || "Finito",
-        statusClass: `status-${l.stato}`,
-        data: faseTimestamps.length > 0
-            ? new Date(faseTimestamps[faseTimestamps.length - 1] * 1000).toLocaleDateString("it-IT")
-            : "In attesa...",
+      const storico = await contractInstance.value.methods
+        .getStorico(id)
+        .call();
+
+      const statoFilieraRaw = Number(lottoData.stato);
+      const statoControlloRaw = Number(lottoData.statoControllo);
+
+      const timestamps = storico.map(e => Number(e.timestamp));
+      const luoghi = storico.map(e => e.luogo);
+
+      lottiCaricati.push({
+        id: lottoData.id.toString(),
+        tipo: lottoData.tipo,
+
+        statoRaw: statoFilieraRaw,
+        statoControlloRaw,
+
+        stato: statoFilieraMap[statoFilieraRaw],
+        statoControllo: statoControlloMap[statoControlloRaw],
+        inRevisione: statoControlloRaw === 1,
+
+        statusLabel: statoControlloRaw === 1
+          ? "Bloccato"
+          : statoFilieraMap[statoFilieraRaw],
+
+        statusClass: statoControlloRaw === 1
+          ? "status-revisione"
+          : `status-${statoFilieraMap[statoFilieraRaw]}`,
+
+        data: timestamps.length > 0
+          ? new Date(timestamps[timestamps.length - 1] * 1000)
+              .toLocaleDateString("it-IT")
+          : "In attesa...",
+
         actors: {
-          Agricoltore: l.agricoltore,
-          Supervisore: l.supervisore,
-          Cantiniere: l.cantiniere,
-          Corriere: l.corriere,
-          Distributore: l.distributore,
+          agricoltore: lottoData.agricoltore,
+          supervisore: lottoData.supervisore,
+          cantiniere: lottoData.cantiniere,
+          corriere: lottoData.corriere,
+          distributore: lottoData.distributore,
         },
-        timestamps: faseTimestamps,
-        luoghi: faseLuoghi,
-      };
-    });
+
+        timestamps,
+        luoghi,
+        motivazione: lottoData.motivoRevisione || null
+      });
+    }
+
+    lotti.value = lottiCaricati;
 
   } catch (err) {
     console.error("Errore caricamento storico:", err);

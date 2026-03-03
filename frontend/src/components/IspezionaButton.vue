@@ -1,49 +1,3 @@
-<script setup>
-import { ref, computed } from 'vue';
-import LottoCard from './LottoCard.vue';
-
-const props = defineProps({
-  lotto: { type: Object, required: true }
-});
-
-const dialogVisible = ref(false);
-const openDialog = () => { dialogVisible.value = true; };
-const closeDialog = () => { dialogVisible.value = false; };
-
-/**
- * COMPUTED: lottoPulito
- * Risolve lo sfasamento dei dati e la sparizione dei timestamp
- */
-const lottoPulito = computed(() => {
-  if (!props.lotto) return null;
-
-  // Se i dati hanno già rimosso "Creazione lotto" (controllando il primo luogo), 
-  // allora non facciamo più alcuno slice.
-  const giaFiltrato = props.lotto.luoghi.length > 0 && 
-                      !props.lotto.luoghi[0].includes("Creazione lotto");
-
-  if (giaFiltrato) {
-    return {
-      ...props.lotto,
-      inRevisione: props.lotto.statoRawVero === 8
-    };
-  }
-
-  // Se per qualche motivo arrivassero dati "sporchi" (grezzi dalla blockchain)
-  // allora applichiamo il filtro di emergenza
-  const luoghiReali = props.lotto.luoghi.filter(l => 
-    !l.includes("Creazione lotto") && !l.includes("PROBLEMA:") && !l.includes("Riabilitato")
-  );
-
-  return {
-    ...props.lotto,
-    luoghi: luoghiReali,
-    timestamps: props.lotto.timestamps.slice(1), // Solo qui facciamo lo slice se necessario
-    inRevisione: props.lotto.statoRawVero === 8
-  };
-});
-</script>
-
 <template>
   <div>
     <button @click="openDialog" class="btn-ispeziona">
@@ -59,6 +13,37 @@ const lottoPulito = computed(() => {
     </div>
   </div>
 </template>
+
+<script setup>
+import { ref, computed } from 'vue';
+import LottoCard from './LottoCard.vue';
+
+const props = defineProps({
+  lotto: { type: Object, required: true }
+});
+
+const dialogVisible = ref(false);
+const openDialog = () => { dialogVisible.value = true; };
+const closeDialog = () => { dialogVisible.value = false; };
+
+const lottoPulito = computed(() => {
+  if (!props.lotto) return null;
+
+  const inRevisione = !!props.lotto.inRevisione;
+  const luoghi = props.lotto.luoghi?.filter(l => !l.includes("Creazione lotto")) || [];
+  const timestampsPuliti = props.lotto.timestamps?.slice(luoghi.length === props.lotto.luoghi.length ? 0 : 1) || [];
+
+  console.log("Actors ricevuti:", props.lotto.actors);
+
+  return {
+    ...props.lotto,
+    luoghi: luoghi,
+    timestamps: timestampsPuliti,
+    inRevisione,
+    motivazione: props.lotto.motivazione || null
+  };
+});
+</script>
 
 <style scoped>
 .btn-ispeziona {

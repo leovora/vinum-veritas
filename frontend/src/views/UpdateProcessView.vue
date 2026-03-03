@@ -51,92 +51,75 @@ const userRole = computed(() => userStore.role);
 const userAddress = computed(() => userStore.account);
 
 /**
- * Mappatura stringa leggibile per lo stato del lotto
- */
-const getStatusLabel = (stato) =>
-  ({
-    creato: "In attesa di vendemmia",
-    vendemmiato: "Vendemmiato",
-    fermentato: "Fermentato",
-    affinato: "Affinato",
-    imbottigliato: "Imbottigliato",
-    spedito: "Spedito",
-    distribuito: "Ricezione confermata",
-    revisione: "⚠️ In Revisione",
-  }[stato] || "Sconosciuto");
-
-/**
  * Caricamento lotti dal contratto intelligente
  * Logica sincronizzata con HistoryView per evitare sfasamenti tra Fasi e Timestamp
  */
 const loadLotti = async () => {
   if (!contractInstance.value) return;
   loading.value = true;
+
   try {
-    const data = await contractInstance.value.methods.getLotti().call();
+    const ids = await contractInstance.value.methods
+      .getAllLottoIds()
+      .call();
 
-    lotti.value = data.map((l, index) => {
-      const statiMappa = [
-        "creato",
-        "vendemmiato",
-        "fermentato",
-        "affinato",
-        "imbottigliato",
-        "spedito",
-        "distribuito",
-        "completato",
-        "revisione",
-      ];
+    const statoFilieraMap = [
+      "creato",
+      "vendemmiato",
+      "fermentato",
+      "affinato",
+      "imbottigliato",
+      "spedito",
+      "distribuito",
+      "completato"
+    ];
 
-      const rawStato = Number(l.stato);
-      const statoStr = statiMappa[rawStato] || "finito";
-      const tsArray = l.timestamps?.map((t) => Number(t)) || [];
-      const luoghiArray = l.luoghi || [];
+    const statoControlloMap = [
+      "attivo",
+      "revisione"
+    ];
 
-      // --- LOGICA DI FILTRAGGIO IDENTICA ALLA HISTORY ---
-      const faseTimestamps = [];
-      const faseLuoghi = [];
+    const lottiCaricati = [];
 
-      // Partiamo dall'indice 1 per saltare la creazione tecnica
-      // e filtriamo i messaggi tecnici (PROBLEMA / Riabilitato)
-      for (let i = 1; i < luoghiArray.length; i++) {
-        const luogo = luoghiArray[i];
-        
-        if (!luogo.includes("PROBLEMA:") && !luogo.includes("Riabilitato")) {
-          faseLuoghi.push(luogo);
-          faseTimestamps.push(tsArray[i]);
-        }
-      }
+    for (const id of ids) {
+      const lottoData = await contractInstance.value.methods
+        .getLotto(id)
+        .call();
 
-      // IMPORTANTE: statoRaw deve corrispondere al numero di fasi reali salvate
-      // se il lotto è completato o in revisione, altrimenti usiamo lo stato numerico
-      const statoApparente = rawStato === 8 || rawStato === 7 
-        ? faseLuoghi.length 
-        : rawStato;
+      const storico = await contractInstance.value.methods
+        .getStorico(id)
+        .call();
 
-      return {
-        blockchainIndex: index,
-        id: l.id.toString(),
-        tipo: l.tipo,
-        stato: statoStr,
-        statoRaw: statoApparente, 
-        statusLabel: getStatusLabel(statoStr),
-        statusClass: `status-${l.stato}`,
+      const statoFilieraRaw = Number(lottoData.stato);
+      const statoControlloRaw = Number(lottoData.statoControllo);
+
+      lottiCaricati.push({
+        id: lottoData.id.toString(),
+        tipo: lottoData.tipo,
+
+        stato: statoFilieraMap[statoFilieraRaw],
+        statoRaw: statoFilieraRaw,
+
+        statoControllo: statoControlloMap[statoControlloRaw],
+        inRevisione: statoControlloRaw === 1,
+
+        motivazione: lottoData.motivoRevisione || null,
+
+        timestamps: storico.map(e => Number(e.timestamp)),
+        luoghi: storico.map(e => e.luogo),
+
         actors: {
-          Agricoltore: l.agricoltore,
-          Supervisore: l.supervisore,
-          Cantiniere: l.cantiniere,
-          Corriere: l.corriere,
-          Distributore: l.distributore,
-        },
-        // Inviando gli array filtrati, la LottoCard non avrà più buchi o sfasamenti
-        timestamps: faseTimestamps,
-        luoghi: faseLuoghi,
-        // Dati aggiuntivi per la LottoCard (alert rosso se bloccato)
-        statoRawVero: rawStato,
-        motivazione: rawStato === 8 ? luoghiArray.findLast(x => x.includes("PROBLEMA:"))?.replace("PROBLEMA: ", "") : null
-      };
-    });
+          Agricoltore: lottoData.agricoltore,
+          Supervisore: lottoData.supervisore,
+          Cantiniere: lottoData.cantiniere,
+          Corriere: lottoData.corriere,
+          Distributore: lottoData.distributore,
+        }
+      });
+    }
+
+    lotti.value = lottiCaricati;
+
   } catch (err) {
     console.error("Errore caricamento lotti:", err);
     showToast("Impossibile caricare i dati dalla blockchain", "error");
@@ -146,59 +129,34 @@ const loadLotti = async () => {
 };
 
 /**
- * Filtro dei lotti in base al ruolo dell'utente loggato
- */
-const filteredLotti = computed(() => {
-  return lotti.value.filter((lotto) => {
-    // Se il lotto è in revisione, è visibile a tutti per trasparenza/blocco
-    if (lotto.stato === "revisione") {
-      return true;
-    }
-
-    switch (userRole.value) {
-      case "AGRICOLTORE":
-        return lotto.stato === "creato";
-      case "SUPERVISORE":
-        return ["vendemmiato", "fermentato"].includes(lotto.stato);
-      case "CANTINIERE":
-        return lotto.stato === "affinato";
-      case "CORRIERE":
-        return lotto.stato === "imbottigliato";
-      case "DISTRIBUTORE":
-        return lotto.stato === "spedito";
-      default:
-        return true;
-    }
-  });
-});
-
-/**
  * Gestione evento di segnalazione problema (da Tabella)
  */
 const handleFallimentoEvent = (data) => {
   console.log("VIEW: Ricevuto @fallimento, chiamo onSegnalaProblema");
-  if (onSegnalaProblema) onSegnalaProblema(data);
+  if (onSegnalaProblema) onSegnalaProblema(data, loadLotti);
 };
 
 /**
  * Gestione evento di riabilitazione lotto (da Tabella)
  */
 const handleRiabilitaEvent = (lotto) => {
-  if (onRiabilitaLotto) onRiabilitaLotto(lotto);
+  if (onRiabilitaLotto) onRiabilitaLotto(lotto, loadLotti);
 };
 
-/**
- * Avanzamento dello stato del processo sulla blockchain
- */
+// --- Avanzamento dello stato del processo ---
 const avanzaStato = async (lotto) => {
   if (!contractInstance.value) return;
+
+  if (lotto.inRevisione) {
+    showToast("Lotto in revisione. Impossibile avanzare.", "error");
+    return;
+  }
 
   const luogo = getSimulatedLocation(userRole.value);
   loading.value = true;
 
   try {
-    await contractInstance.value.methods
-      .avanzaStato(lotto.blockchainIndex, luogo)
+    await contractInstance.value.methods.avanzaStato(lotto.id, luogo)
       .send({ from: userAddress.value });
 
     await loadLotti();
@@ -210,6 +168,24 @@ const avanzaStato = async (lotto) => {
     loading.value = false;
   }
 };
+
+// --- Filtro dei lotti basato su inRevisione reale ---
+const filteredLotti = computed(() => {
+  return lotti.value.filter((lotto) => {
+    if (lotto.inRevisione) {
+      return userRole.value === 'ADMIN';
+    }
+
+    switch (userRole.value) {
+      case "AGRICOLTORE": return lotto.stato === "creato";
+      case "SUPERVISORE": return ["vendemmiato","fermentato"].includes(lotto.stato);
+      case "CANTINIERE": return lotto.stato === "affinato";
+      case "CORRIERE": return lotto.stato === "imbottigliato";
+      case "DISTRIBUTORE": return lotto.stato === "spedito";
+      default: return true;
+    }
+  });
+});
 
 // --- Watcher per istanza contratto ---
 watch(

@@ -93,87 +93,23 @@ const getUserRole = async (address) => {
   }
 };
 
-/**
- * Funzione centralizzata per segnalare un problema.
- * Deve essere fornita via provide() per essere usata da chiunque nella dApp.
- */
-const onSegnalaProblema = async ({ lotto, motivazione }) => {
-  if (!contract.value) return;
 
-  try {
-    const accounts = await window.ethereum.request({ method: "eth_accounts" });
-    const allLotti = await contract.value.methods.getLotti().call();
-    const index = allLotti.findIndex(l => l.id.toString() === lotto.id.toString());
-
-    if (index === -1) return;
-
-    // --- MODIFICA QUI ---
-    // Salviamo lo stato attuale nel localStorage prima di inviare la transazione
-    // Usiamo l'ID del lotto come chiave per non confonderli
-    const statoDaSalvare = allLotti[index].stato;
-    localStorage.setItem(`lastState_lotto_${lotto.id}`, statoDaSalvare);
-    console.log(`Stato ${statoDaSalvare} salvato localmente per il lotto ${lotto.id}`);
-
-    await contract.value.methods.segnalaProblema(index, motivazione)
-      .send({ from: accounts[0] });
-    
-    window.location.reload(); 
-  } catch (error) {
-    console.error("Errore segnalazione:", error);
-  }
+const onSegnalaProblema = async ({ lotto, motivazione }, reloadLotti) => {
+  const accounts = await window.ethereum.request({ method: "eth_accounts" });
+  await contract.value.methods.segnalaProblema(lotto.id, motivazione)
+    .send({ from: accounts[0] });      
+  await reloadLotti()       
 };
 
-/**
- * LOGICA RIABILITAZIONE (Sblocco Lotto Admin)
- */
-/**
- * Riabilita il lotto portandolo automaticamente all'ultimo stato valido 
- * prima che venisse segnalato il problema.
- */
-const onRiabilitaLotto = async (lotto) => {
-  if (!contract.value) return;
-  
-  console.log("APP.VUE: Avvio riabilitazione automatica per lotto:", lotto.id);
+const onRiabilitaLotto = async (lotto, reloadLotti) => {
+  const accounts = await window.ethereum.request({ method: "eth_accounts" });
 
-  try {
-    const accounts = await window.ethereum.request({ method: "eth_accounts" });
-    
-    const allLotti = await contract.value.methods.getLotti().call();
-    const index = allLotti.findIndex(l => l.id.toString() === lotto.id.toString());
-
-    if (index === -1) return;
-
-    // --- RECUPERO STATO SALVATO ---
-    // Leggiamo lo stato che avevamo salvato nel localStorage
-    const statoSalvato = localStorage.getItem(`lastState_lotto_${lotto.id}`);
-    
-    // Se per qualche motivo il localStorage è vuoto, usiamo il calcolo di emergenza
-    let statoDestinazione;
-    if (statoSalvato !== null) {
-      statoDestinazione = parseInt(statoSalvato);
-      console.log(`APP.VUE: Recuperato stato salvato: ${statoDestinazione}`);
-    } else {
-      // Calcolo di emergenza (se l'utente ha pulito la cache)
-      const lottoDati = allLotti[index];
-      statoDestinazione = Math.max(0, lottoDati.luoghi.length - 3); 
-      console.warn("APP.VUE: Stato non trovato in cache, uso calcolo di emergenza.");
-    }
-
-    // 2. Invio transazione al contratto
-    await contract.value.methods.riabilitaLotto(index, statoDestinazione)
-      .send({ from: accounts[0] });
-    
-    // Puliamo il localStorage dopo il ripristino
-    localStorage.removeItem(`lastState_lotto_${lotto.id}`);
-    
-    console.log("APP.VUE: Lotto riabilitato con successo allo stato", statoDestinazione);
-    window.location.reload();
-
-  } catch (e) {
-    console.error("Errore riabilitazione:", e);
-    alert("Errore durante lo sblocco del lotto.");
-  }
+  await contract.value.methods
+    .riabilitaLotto(lotto.id)
+    .send({ from: accounts[0] });
+  await reloadLotti()
 };
+
 
 // Forniamo le funzioni aggiornate
 provide("contractInstance", contract);

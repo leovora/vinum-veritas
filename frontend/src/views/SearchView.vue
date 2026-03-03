@@ -64,86 +64,54 @@ const isConnecting = computed(
   () => !contractInstance || !contractInstance.value
 );
 
-const STATUS_LABELS = [
-  "creato", "vendemmiato", "fermentato", "affinato", 
-  "imbottigliato", "spedito", "distribuito", "completato", "revisione" 
-];
-
 // ===================== HANDLE SEARCH =====================
 const handleSearch = async () => {
-  if (isConnecting.value) return;
+  const targetId = searchId.value.toString().trim();
 
-  const targetId = searchId.value.toString();
   if (!targetId || Number(targetId) < 1) {
     showToast("Inserisci un ID valido", "error");
     return;
   }
 
   loading.value = true;
-  hasSearched.value = true;
   lottoDettaglio.value = null;
 
   try {
-    // Recuperiamo tutti i lotti per trovare l'ID corretto indipendentemente dall'indice
-    const allLotti = await contractInstance.value.methods.getLotti().call();
-    const res = allLotti.find(l => l.id.toString() === targetId);
+    const lottoData = await contractInstance.value.methods
+      .getLotto(targetId)
+      .call();
 
-    if (res && res.id.toString() !== "0") {
-      const rawStato = Number(res.stato);
-      const tsArray = res.timestamps.map(t => Number(t));
-      const luoghiArray = res.luoghi;
+    const storico = await contractInstance.value.methods
+      .getStorico(targetId)
+      .call();
 
-      // 1. FILTRAGGIO SINCRONIZZATO (Luoghi vs Timestamps)
-      const indiciValidi = [];
-      const luoghiPuliti = luoghiArray.filter((l, idx) => {
-        const isTecnico = l.includes("PROBLEMA:") || l.includes("Riabilitato");
-        if (!isTecnico) {
-          indiciValidi.push(idx);
-          return true;
+    const statoFilieraRaw = Number(lottoData.stato);
+    const statoControlloRaw = Number(lottoData.statoControllo);
+
+    lottoDettaglio.value = {
+      id: lottoData.id.toString(),
+      tipo: lottoData.tipo,
+      statoRaw: statoFilieraRaw,
+      inRevisione: statoControlloRaw === 1,
+      motivazione: lottoData.motivoRevisione,
+      timestamps: storico.slice(1).map(e => Number(e.timestamp)),
+      luoghi: storico.slice(1).map(e => e.luogo),
+      actors: {
+          agricoltore: lottoData.agricoltore,
+          supervisore: lottoData.supervisore,
+          cantiniere: lottoData.cantiniere,
+          corriere: lottoData.corriere,
+          distributore: lottoData.distributore,
         }
-        return false;
-      });
+    };
 
-      const timestampsPuliti = tsArray.filter((_, idx) => indiciValidi.includes(idx));
-
-      // 2. CALCOLO STATO APPARENTE 
-      // Evita che la barra progresso mostri tutto verde se lo stato è 8 (revisione)
-      const statoApparente = rawStato === 8 
-        ? Math.max(0, luoghiPuliti.length - 1) 
-        : rawStato;
-
-      const notaProblema = res.luoghi
-        .findLast(l => l.includes("PROBLEMA:"))
-        ?.replace("PROBLEMA: ", "");
-
-      lottoDettaglio.value = {
-        id: res.id.toString(),
-        tipo: res.tipo,
-        statoRaw: statoApparente,
-        statusLabel: rawStato === 8 ? "IN REVISIONE" : STATUS_LABELS[rawStato],
-        statusClass: rawStato === 8 ? "revisione" : `status-${res.stato}`,
-        actors: {
-          Agricoltore: res.agricoltore,
-          Supervisore: res.supervisore,
-          Cantiniere: res.cantiniere,
-          Corriere: res.corriere,
-          Distributore: res.distributore,
-        },
-        timestamps: timestampsPuliti.slice(1),
-        luoghi: luoghiPuliti.slice(1),
-        motivazione: rawStato === 8 ? notaProblema : null
-      };
-    } else {
-      showToast("Lotto non trovato sul registro", "warning");
-    }
   } catch (err) {
-    console.error("Errore ricerca lotto:", err);
-    showToast("Errore durante la comunicazione con la Blockchain", "error");
-    lottoDettaglio.value = null;
+    showToast("Lotto inesistente", "error");
   } finally {
     loading.value = false;
   }
 };
+
 </script>
 
 <style scoped>

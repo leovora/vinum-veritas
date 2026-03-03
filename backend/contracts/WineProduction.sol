@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract WineProduction {
+
     // ===================== RUOLI =====================
     bytes32 public constant ADMIN = keccak256("ADMIN");
     bytes32 public constant AGRICOLTORE = keccak256("AGRICOLTORE");
@@ -10,31 +11,49 @@ contract WineProduction {
     bytes32 public constant CORRIERE = keccak256("CORRIERE");
     bytes32 public constant DISTRIBUTORE = keccak256("DISTRIBUTORE");
 
-    // ===================== STATI =====================
-    enum Stato {
-        Creato,         // 0
-        Vendemmiato,    // 1
-        Fermentato,     // 2
-        Affinato,       // 3
-        Imbottigliato,  // 4
-        Spedito,        // 5
-        Distribuito,    // 6
-        Completato,     // 7
-        Revisione       // 8
+    // ===================== STATI DI FILIERA =====================
+    enum StatoFiliera {
+        Creato,
+        Vendemmiato,
+        Fermentato,
+        Affinato,
+        Imbottigliato,
+        Spedito,
+        Distribuito,
+        Completato
     }
 
-    // ===================== STRUCT =====================
+    // ===================== STATO AMMINISTRATIVO =====================
+    enum StatoControllo {
+        Attivo,
+        InRevisione
+    }
+
+    // ===================== STORICO STRUTTURATO =====================
+    struct EventoFiliera {
+        uint256 timestamp;
+        string luogo;
+        StatoFiliera stato;
+    }
+
+    // ===================== LOTTO =====================
     struct Lotto {
         uint256 id;
         string tipo;
-        Stato stato;
-        uint256[] timestamps;
-        string[] luoghi;
+
+        StatoFiliera stato;
+        StatoControllo statoControllo;
+        StatoFiliera statoPrecedente;
+
+        string motivoRevisione;
+
         address agricoltore;
         address supervisore;
         address cantiniere;
         address corriere;
         address distributore;
+
+        EventoFiliera[] storico;
     }
 
     struct User {
@@ -47,15 +66,32 @@ contract WineProduction {
     mapping(address => bytes32) public roles;
     mapping(address => User) public users;
     address[] public userAddresses;
-    Lotto[] public lotti;
+
+    mapping(uint256 => Lotto) public lotti;
+    uint256[] public lottoIds;
+
     uint256 public nextId = 1;
 
     // ===================== EVENTI =====================
-    event FaseSegnalata(uint256 indexed lottoId, string motivazione, address utente);
-    event LottoRiabilitato(uint256 indexed lottoId, Stato nuovoStato);
+    event LottoCreato(uint256 indexed lottoId);
+    event StatoAvanzato(uint256 indexed lottoId, StatoFiliera nuovoStato);
+    event LottoInRevisione(uint256 indexed lottoId, string motivo, address segnalatore);
+    event LottoRiabilitato(uint256 indexed lottoId, StatoFiliera statoRipristinato);
 
+    // ===================== COSTRUTTORE =====================
     constructor() {
         roles[msg.sender] = ADMIN;
+    }
+
+    // ===================== MODIFIER =====================
+    modifier onlyAdmin() {
+        require(roles[msg.sender] == ADMIN, "Solo Admin");
+        _;
+    }
+
+    modifier lottoEsistente(uint256 _id) {
+        require(lotti[_id].id != 0, "Lotto inesistente");
+        _;
     }
 
     // ===================== CREA LOTTO =====================
@@ -66,98 +102,154 @@ contract WineProduction {
         address _cantiniere,
         address _corriere,
         address _distributore
-    ) public {
-        require(roles[msg.sender] == ADMIN, "Solo Admin");
+    ) public onlyAdmin {
 
-        Lotto storage lotto = lotti.push();
-        lotto.id = nextId++;
+        uint256 id = nextId++;
+
+        Lotto storage lotto = lotti[id];
+        lotto.id = id;
         lotto.tipo = _tipo;
-        lotto.stato = Stato.Creato;
-        lotto.timestamps.push(block.timestamp);
-        lotto.luoghi.push("Creazione lotto");
+        lotto.stato = StatoFiliera.Creato;
+        lotto.statoControllo = StatoControllo.Attivo;
+
         lotto.agricoltore = _agricoltore;
         lotto.supervisore = _supervisore;
         lotto.cantiniere = _cantiniere;
         lotto.corriere = _corriere;
         lotto.distributore = _distributore;
+
+        lotto.storico.push(
+            EventoFiliera(block.timestamp, "Creazione lotto", StatoFiliera.Creato)
+        );
+
+        lottoIds.push(id);
+
+        emit LottoCreato(id);
     }
 
     // ===================== AVANZA STATO =====================
-    function avanzaStato(uint256 _index, string memory _luogo) public {
-        require(_index < lotti.length, "Lotto inesistente");
-        Lotto storage lotto = lotti[_index];
-        
-        require(lotto.stato != Stato.Revisione, "Lotto bloccato: in revisione");
-        
-        Stato attuale = lotto.stato;
+    function avanzaStato(uint256 _id, string memory _luogo)
+        public
+        lottoEsistente(_id)
+    {
+        Lotto storage lotto = lotti[_id];
+
+        require(lotto.statoControllo == StatoControllo.Attivo, "Lotto in revisione");
+        require(lotto.stato != StatoFiliera.Completato, "Processo completato");
+
         bytes32 userRole = roles[msg.sender];
 
-        if (attuale == Stato.Creato) {
+        if (lotto.stato == StatoFiliera.Creato) {
             require(userRole == AGRICOLTORE && msg.sender == lotto.agricoltore, "Solo Agricoltore");
-        } else if (attuale == Stato.Vendemmiato || attuale == Stato.Fermentato) {
+        } else if (
+            lotto.stato == StatoFiliera.Vendemmiato ||
+            lotto.stato == StatoFiliera.Fermentato
+        ) {
             require(userRole == SUPERVISORE && msg.sender == lotto.supervisore, "Solo Supervisore");
-        } else if (attuale == Stato.Affinato) {
+        } else if (lotto.stato == StatoFiliera.Affinato) {
             require(userRole == CANTINIERE && msg.sender == lotto.cantiniere, "Solo Cantiniere");
-        } else if (attuale == Stato.Imbottigliato) {
+        } else if (lotto.stato == StatoFiliera.Imbottigliato) {
             require(userRole == CORRIERE && msg.sender == lotto.corriere, "Solo Corriere");
-        } else if (attuale == Stato.Spedito) {
+        } else if (lotto.stato == StatoFiliera.Spedito) {
             require(userRole == DISTRIBUTORE && msg.sender == lotto.distributore, "Solo Distributore");
-        } else {
-            revert("Processo completato");
         }
 
-        lotto.stato = Stato(uint(lotto.stato) + 1);
-        lotto.timestamps.push(block.timestamp);
-        lotto.luoghi.push(_luogo);
+        lotto.stato = StatoFiliera(uint(lotto.stato) + 1);
+
+        lotto.storico.push(
+            EventoFiliera(block.timestamp, _luogo, lotto.stato)
+        );
+
+        emit StatoAvanzato(_id, lotto.stato);
     }
 
-    // ===================== GESTIONE PROBLEMI =====================
-    function segnalaProblema(uint256 _index, string memory _motivazione) public {
-        require(_index < lotti.length, "Lotto inesistente");
-        Lotto storage lotto = lotti[_index];
-        
-        require(lotto.stato != Stato.Revisione && lotto.stato != Stato.Completato, "Stato non modificabile");
-        
-        lotto.stato = Stato.Revisione;
-        lotto.timestamps.push(block.timestamp);
-        lotto.luoghi.push(string(abi.encodePacked("PROBLEMA: ", _motivazione)));
-        
-        emit FaseSegnalata(_index, _motivazione, msg.sender);
+    // ===================== SEGNALA PROBLEMA =====================
+    function segnalaProblema(uint256 _id, string memory _motivazione)
+        public
+        lottoEsistente(_id)
+    {
+        Lotto storage lotto = lotti[_id];
+
+        require(lotto.statoControllo == StatoControllo.Attivo, "Gia in revisione");
+        require(lotto.stato != StatoFiliera.Completato, "Lotto completato");
+
+        lotto.statoPrecedente = lotto.stato;
+        lotto.statoControllo = StatoControllo.InRevisione;
+        lotto.motivoRevisione = _motivazione;
+
+        emit LottoInRevisione(_id, _motivazione, msg.sender);
     }
 
-    function riabilitaLotto(uint256 _index, Stato _nuovoStato) public {
-        require(roles[msg.sender] == ADMIN, "Solo Admin");
-        require(_index < lotti.length, "Lotto inesistente");
-        require(lotti[_index].stato == Stato.Revisione, "Non in revisione");
+    // ===================== RIABILITA LOTTO =====================
+    function riabilitaLotto(uint256 _id)
+        public
+        onlyAdmin
+        lottoEsistente(_id)
+    {
+        Lotto storage lotto = lotti[_id];
 
-        lotti[_index].stato = _nuovoStato;
-        lotti[_index].timestamps.push(block.timestamp);
-        lotti[_index].luoghi.push("Riabilitato da Admin");
+        require(lotto.statoControllo == StatoControllo.InRevisione, "Non in revisione");
 
-        emit LottoRiabilitato(_index, _nuovoStato);
+        lotto.stato = lotto.statoPrecedente;
+        lotto.statoControllo = StatoControllo.Attivo;
+        lotto.motivoRevisione = "";
+
+        emit LottoRiabilitato(_id, lotto.stato);
     }
 
-    // ===================== ADMIN & UTILITY =====================
-    function eliminaLotto(uint256 _index) public {
-        require(roles[msg.sender] == ADMIN, "Solo Admin");
-        require(_index < lotti.length, "Indice non valido");
+    // ===================== GETTERS =====================
 
-        lotti[_index] = lotti[lotti.length - 1];
-        lotti.pop();
+    function getLotto(uint256 _id)
+        public
+        view
+        lottoEsistente(_id)
+        returns (
+            uint256 id,
+            string memory tipo,
+            StatoFiliera stato,
+            StatoControllo statoControllo,
+            string memory motivoRevisione,
+            address agricoltore,
+            address supervisore,
+            address cantiniere,
+            address corriere,
+            address distributore
+        )
+    {
+        Lotto storage l = lotti[_id];
+        return (
+            l.id,
+            l.tipo,
+            l.stato,
+            l.statoControllo,
+            l.motivoRevisione,
+            l.agricoltore,
+            l.supervisore,
+            l.cantiniere,
+            l.corriere,
+            l.distributore
+        );
     }
 
-    function getLotto(uint256 _index) public view returns (uint256 id, string memory tipo, Stato stato, address agricoltore, address supervisore, address cantiniere, address corriere, address distributore, uint256[] memory timestamps, string[] memory luoghi) {
-        require(_index < lotti.length, "Indice non valido");
-        Lotto storage l = lotti[_index];
-        return (l.id, l.tipo, l.stato, l.agricoltore, l.supervisore, l.cantiniere, l.corriere, l.distributore, l.timestamps, l.luoghi);
+    function getStorico(uint256 _id)
+        public
+        view
+        lottoEsistente(_id)
+        returns (EventoFiliera[] memory)
+    {
+        return lotti[_id].storico;
     }
 
-    function getLotti() public view returns (Lotto[] memory) {
-        return lotti;
+    function getAllLottoIds() public view returns (uint256[] memory) {
+        return lottoIds;
     }
 
-    function addUser(address _user, string memory _name, string memory _roleName) public {
-        require(roles[msg.sender] == ADMIN, "Solo Admin");
+    // ===================== USER MANAGEMENT =====================
+
+    function addUser(address _user, string memory _name, string memory _roleName)
+        public
+        onlyAdmin
+    {
         bytes32 roleHash = keccak256(abi.encodePacked(_roleName));
         roles[_user] = roleHash;
         users[_user] = User(_name, _roleName, true);
@@ -169,15 +261,11 @@ contract WineProduction {
                 break;
             }
         }
+
         if (!exists) userAddresses.push(_user);
     }
 
-    function getAllUserAddresses() public view returns (address[] memory) {
-        return userAddresses;
-    }
-
-    function eliminaUtente(address _user) public {
-        require(roles[msg.sender] == ADMIN, "Solo Admin");
+    function eliminaUtente(address _user) public onlyAdmin {
         require(users[_user].isActive, "Utente non attivo");
 
         users[_user].isActive = false;
@@ -192,13 +280,7 @@ contract WineProduction {
         }
     }
 
-    function getLottoTimestamps(uint256 _index) public view returns (uint256[] memory) {
-        require(_index < lotti.length, "Indice non valido");
-        return lotti[_index].timestamps;
-    }
-
-    function getLottoLuoghi(uint256 _index) public view returns (string[] memory) {
-        require(_index < lotti.length, "Indice non valido");
-        return lotti[_index].luoghi;
+    function getAllUserAddresses() public view returns (address[] memory) {
+        return userAddresses;
     }
 }

@@ -16,10 +16,7 @@
         </tr>
 
         <template v-for="lotto in lotti" :key="lotto.id">
-          <tr 
-            v-if="lotto.stato !== 'revisione' || userRole === 'ADMIN'"
-            :class="{ 'row-revisione': lotto.stato === 'revisione' }"
-          >
+          <tr :class="{ 'row-revisione': lotto.inRevisione }">
             <td class="id-cell">#{{ lotto.id }}</td>
 
             <td>
@@ -39,11 +36,13 @@
 
             <td>
               <div class="status-flex-container">
+                <!-- Pillola di stato: mostra "Bloccato" se il lotto è in revisione -->
                 <span :class="['status-pill', lotto.stato]">
-                  {{ lotto.stato === 'revisione' ? 'Bloccato' : STATUS_LABELS[lotto.stato] }}
+                  {{ lotto.inRevisione ? 'Bloccato' : STATUS_LABELS[lotto.stato] }}
                 </span>
 
-                <div v-if="lotto.stato === 'revisione'" class="postit-container">
+                <!-- Post-it con motivazione solo se il lotto è in revisione -->
+                <div v-if="lotto.inRevisione" class="postit-container">
                   <div class="postit-circle-icon">?</div>
                   <div class="postit-tooltip">
                     <p class="tooltip-title">Nota di segnalazione:</p>
@@ -56,7 +55,8 @@
             <td class="actions-cell">
               <div class="btn-group">
                 
-                <template v-if="lotto.stato !== 'revisione'">
+                <!-- Pulsanti sequenziali -->
+                <template v-if="!lotto.inRevisione">
                   <button
                     v-for="step in STEPS"
                     :key="step.label"
@@ -67,17 +67,17 @@
                     {{ step.icon }} {{ step.label }}
                   </button>
 
-                  <template v-for="step in STEPS" :key="'fail-' + step.label">
-                    <button
-                      v-if="userRole !== 'ADMIN' && canAdvance(step, lotto)"
-                      class="btn-fail"
-                      @click="handleFail(lotto)"
-                    >
-                      ⚠️ Segnala
-                    </button>
-                  </template>
+                  <!-- Segnala solo se utente non Admin -->
+                  <button
+                    v-if="userRole !== 'ADMIN'"
+                    class="btn-fail"
+                    @click="handleFail(lotto)"
+                  >
+                    ⚠️ Segnala
+                  </button>
                 </template>
 
+                <!-- Pulsanti Admin su lotto bloccato -->
                 <template v-else-if="userRole === 'ADMIN'">
                   <button class="btn-approve" @click="handleRiabilita(lotto)">
                     ✅ Sblocca
@@ -87,13 +87,14 @@
                   </button>
                 </template>
 
+                <!-- Messaggio blocco per altri ruoli -->
                 <span v-else class="lock-msg">
                   🔒 In revisione
                 </span>
 
                 <IspezionaButton :lotto="lotto" />
               </div>
-            </td>
+            </td>          
           </tr>
         </template>
       </tbody>
@@ -148,15 +149,9 @@ const STEPS = [
   { stato: "spedito", role: "DISTRIBUTORE", label: "Ricezione", icon: "🏢" },
 ];
 
-// In ProcessTable.vue
 const getMotivazioneCompleta = (lotto) => {
-  // Se abbiamo già estratto la motivazione nel mapping, usiamo quella
   if (lotto.motivazione) return lotto.motivazione;
-  
-  // Altrimenti cerchiamo nell'array originale (se presente)
-  const arrayRicerca = lotto.luoghiOriginali || lotto.luoghi;
-  const entry = arrayRicerca.findLast(l => l.includes("PROBLEMA:"));
-  return entry ? entry.replace("PROBLEMA: ", "") : "Nessun dettaglio fornito.";
+  return "Nessun dettaglio fornito.";
 };
 
 const getProgressWidth = (stato) => PROGRESS[stato] || "0%";
@@ -165,9 +160,8 @@ const badgeClass = (tipo) =>
   tipo.includes("Rosso") ? "b-rosso" : tipo.includes("Bianco") ? "b-bianco" : "b-rosa";
 
 const canAdvance = (step, lotto) => {
-  return lotto.stato !== 'revisione' && 
-         lotto.stato === step.stato && 
-         props.userRole === step.role;
+  if (lotto.inRevisione) return false;
+  return lotto.stato === step.stato && props.userRole === step.role;
 };
 
 const handleAdvance = (lotto) => {
