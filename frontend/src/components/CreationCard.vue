@@ -52,7 +52,7 @@
           <label class="step-label">Resoconto</label>
 
           <div class="summary-box">
-            <p><strong>Verifica Filiera Completa:</strong></p>
+            <p><strong>Verifica filiera completa:</strong></p>
             <ul class="summary-list">
               <li v-for="role in rolesChain" :key="role">
                 <span class="role-name">{{ formatLabel(role) }}:</span>
@@ -67,7 +67,7 @@
             <button @click="prevStep" class="btn-outline">Modifica</button>
 
             <button @click="handleCreate" :class="['btn-confirm', btnClass]">
-              Crea Produzione {{ lineaText }}
+              Crea produzione {{ lineaText }}
             </button>
           </div>
         </div>
@@ -116,7 +116,7 @@ const cardHeightClass = computed(() =>
 const getUsersByRole = (role) =>
   registeredUsers.value.filter((u) => u.role === role);
 
-const formatLabel = (role) => role.charAt(0) + role.slice(1).toLowerCase();
+const formatLabel = (role) => role.toLowerCase();
 
 const nextStep = () => {
   if (currentStep.value < totalSteps.value - 1) currentStep.value++;

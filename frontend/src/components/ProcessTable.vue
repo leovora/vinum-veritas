@@ -4,9 +4,9 @@
       <thead>
         <tr>
           <th>ID Lotto</th>
-          <th>Tipologia / Progresso</th>
-          <th>Stato Attuale</th>
-          <th>Azioni Sequenziali</th>
+          <th>Tipologia e progresso</th>
+          <th>Stato</th>
+          <th></th>
         </tr>
       </thead>
 
@@ -79,7 +79,7 @@
                   <button class="btn-approve" @click="handleRiabilita(lotto)">
                     ✅ Sblocca
                   </button>
-                  <button class="btn-delete" @click="handleElimina(lotto)">
+                  <button class="btn-delete" @click="$emit('elimina', lotto)">
                     🗑️ Elimina
                   </button>
                 </template>
@@ -100,20 +100,15 @@
 </template>
 
 <script setup>
-import { ref, computed, inject } from "vue";
-import { useToast } from '../components/utils/useToast.js';
+import { computed } from "vue";
 import IspezionaButton from "./IspezionaButton.vue";
 import { useUserStore } from "../stores/user";
 
-
-const contractInstance = inject("contractInstance");
 const emit = defineEmits(["elimina", "fallimento", "riabilita"]);
 
 const userStore = useUserStore();
 const userRole = computed(() => userStore.role?.toUpperCase());
 const userAddress = computed(() => userStore.account);
-
-const { showToast } = useToast();
 
 const props = defineProps({
   lotti: { type: Array, required: true },
@@ -198,6 +193,112 @@ const visibleLotti = computed(() => {
 </script>
 
 <style scoped>
+
+.process-table-container {
+  overflow-x: auto;
+  padding: 10px;
+}
+
+.process-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 10px;
+}
+
+.process-table th {
+  text-align: center;
+  padding: 15px;
+  color: #666;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.process-table td {
+  padding: 15px;
+  background: white;
+  border-top: 1px solid #eee;
+  border-bottom: 1px solid #eee;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.process-table td:first-child {
+  border-left: 1px solid #eee;
+  border-radius: 10px 0 0 10px;
+}
+
+.process-table td:last-child {
+  border-right: 1px solid #eee;
+  border-radius: 0 10px 10px 0;
+}
+
+.row-revisione td {
+  background-color: #fff5f5 !important;
+}
+
+.badge {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: white;
+  text-transform: uppercase;
+  display: inline-block;
+}
+
+.b-rosso  { background: #b22222; }
+.b-bianco { background: #f4d03f; color: #2d3436; }
+.b-rosa   { background: #db7093; }
+
+
+.type-progress-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress-container {
+  width: 100px;
+  height: 6px;
+  background: #eee;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: #800020;
+  transition: width 0.4s ease;
+}
+
+.status-pill {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  display: inline-block;
+  min-width: 110px;
+}
+
+.creato       { background: #f8f9fa; color: #6c757d;  border: 1px solid #dee2e6; }
+.vendemmiato  { background: #e6fffa; color: #2d3748;  border: 1px solid #b2f5ea; }
+.fermentato   { background: #ebf8ff; color: #2b6cb0;  border: 1px solid #bee3f8; }
+.affinato     { background: #fffaf0; color: #9c4221;  border: 1px solid #feebc8; }
+.imbottigliato{ background: #f7fafc; color: #2d3748;  border: 1px solid #edf2f7; }
+.spedito      { background: #faf5ff; color: #5a4687;  border: 1px solid #e2c8ff; }
+.distribuito  { background: #faf5ff; color: #6b46c1;  border: 1px solid #e9d8fd; }
+
+.revisione {
+  background: #d63031;
+  color: white;
+  border-radius: 20px;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
 .status-flex-container {
   display: flex;
   align-items: center;
@@ -214,7 +315,7 @@ const visibleLotti = computed(() => {
 .postit-circle-icon {
   width: 22px;
   height: 22px;
-  background-color: black; 
+  background-color: #800020;
   color: white;
   border-radius: 50%;
   display: flex;
@@ -239,7 +340,7 @@ const visibleLotti = computed(() => {
   border-radius: 8px;
   width: 240px;
   z-index: 100;
-  box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
   transition: opacity 0.3s, visibility 0.3s;
   pointer-events: none;
 }
@@ -276,32 +377,70 @@ const visibleLotti = computed(() => {
   word-wrap: break-word;
 }
 
-.row-revisione td {
-  background-color: #fff5f5 !important;
+.btn-group {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
-.status-pill {
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 800;
-  text-transform: uppercase;
+.btn-step {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: white;
+  border: 1.5px solid #800020;
+  color: #800020;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-.revisione {
-  background: #d63031;
+.btn-step:disabled {
+  display: none;
+}
+
+.btn-step:hover:not(:disabled) {
+  background: #800020;
   color: white;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-delete {
+  background: #ff4757;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-delete:hover {
+  background: #ff6b81;
+  transform: translateY(-1px);
 }
 
 .btn-fail {
   background: none;
-  border: 1px solid #e17055;
+  border: 1.5px solid #e17055;
   color: #e17055;
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: 700;
-  font-size: 0.75rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
 }
 
 .btn-fail:hover {
@@ -313,64 +452,32 @@ const visibleLotti = computed(() => {
   background: #00b894;
   color: white;
   border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 700;
-}
-.btn-approve:hover { color: black; background: #55efc4; }
-
-.btn-delete {
-  background: #d63031;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 700;
-}
-.btn-delete:hover { background: #ff7675; }
-
-.btn-group { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; align-items: center; }
-
-.btn-step {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: white;
-  border: 1.5px solid #800020;
-  color: #800020;
-  padding: 8px 14px;
+  padding: 8px 12px;
   border-radius: 8px;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.btn-approve:hover {
+  background: #55efc4;
+  color: #2d3436;
 }
 
 .lock-msg {
   background: #2d3436;
   color: white;
   padding: 8px 12px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 0.8rem;
   font-weight: bold;
 }
 
-.btn-step:disabled { display: none; }
-.btn-step:hover { background: #800020; color: white; }
-
-.process-table { width: 100%; border-collapse: separate; border-spacing: 0 10px; }
-.process-table td { padding: 14px; background: white; border-top: 1px solid #eee; border-bottom: 1px solid #eee; text-align: center; vertical-align: middle; }
-
-.empty-msg { padding: 40px !important; color: #999; font-style: italic; }
-
-/* Badge colors */
-.badge { padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; display: inline-block; }
-.b-rosso { background: #ff7675; color: white; }
-.b-bianco { background: #dfe6e9; color: #2d3436; border: 1px solid #b2bec3; }
-.b-rosa { background: #fd79a8; color: white; }
-
-.type-progress-col { display: flex; flex-direction: column; align-items: center; }
-.progress-container { width: 100px; height: 6px; background: #eee; border-radius: 10px; overflow: hidden; }
-.progress-bar { height: 100%; background: #00b894; transition: width 0.3s ease; }
+.empty-msg {
+  text-align: center;
+  padding: 30px;
+  color: #888;
+  font-style: italic;
+}
 </style>

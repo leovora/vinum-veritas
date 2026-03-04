@@ -108,7 +108,16 @@ const removeUser = async (address) => {
     showToast("Utente rimosso con successo", "success");
   } catch (err) {
     console.error("Errore rimozione utente:", err);
-    showToast("Errore transazione blockchain", "error");
+
+    const reason = err?.data?.message || err?.message || "";
+    const isActiveLotti = reason.includes("lotti attivi");
+
+    showToast(
+      isActiveLotti
+        ? "Impossibile rimuovere: utente coinvolto in lotti attivi o in revisione"
+        : "Errore transazione blockchain",
+      "error"
+    );
   }
 };
 

@@ -6,7 +6,7 @@
 
       <section v-if="userRole === 'ADMIN'" class="card creation-section">
         <div class="card-title">
-          <h2>Configurazione Nuova Produzione</h2>
+          <h2>Configurazione nuova produzione</h2>
         </div>
         <div class="creation-grid">
           <CreationCard lineaText="Rosso" linea="rosso" btnClass="btn-rosso" :onCreate="creaLotti" />
@@ -17,7 +17,7 @@
 
       <section class="card processes-section">
         <div class="card-title">
-          <h2>{{ userRole === 'ADMIN' ? 'Gestione Processi Blockchain' : 'Stato Globale Filiera' }}</h2>
+          <h2>Gestione processi</h2>
         </div>
 
         <div v-if="loading" class="loading-overlay">
@@ -91,8 +91,7 @@ const loadLotti = async () => {
         "affinato",
         "imbottigliato",
         "spedito",
-        "distribuito",
-        "completato"
+        "distribuito"
       ];
 
       const statoControlloMap = [

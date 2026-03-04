@@ -72,15 +72,11 @@ const lottoPulito = computed(() => {
 }
 
 .dialog-content {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
   max-width: 95%;
   max-height: 90vh;
   width: 850px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
   opacity: 0;
   transform: translateY(-20px);
   transition: opacity 0.3s ease, transform 0.3s ease;

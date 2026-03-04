@@ -2,10 +2,10 @@
   <div class="search-page-wrapper">
     <div class="search-lotti-container">
       <header class="page-header-central">
-        <h1 class="main-title">Monitoraggio Globale Lotti</h1>
+        <h1 class="main-title">Monitoraggio globale lotti</h1>
         <div class="title-divider"></div>
         <p class="subtitle">
-          Analisi tecnica e tracciabilità del registro distribuito
+          Consulta l'origine e la cronologia completa di ogni lotto.
         </p>
       </header>
 
@@ -14,7 +14,7 @@
           <input
             v-model="searchId"
             type="number"
-            placeholder="Inserisci l'ID del Lotto (es. 3)"
+            placeholder="Inserisci l'ID del lotto"
             @keyup.enter="handleSearch"
           />
           <button

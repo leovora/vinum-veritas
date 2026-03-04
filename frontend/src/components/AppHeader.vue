@@ -25,7 +25,7 @@
     <div class="header-inner">
       <h1>Vinum Veritas</h1>
       <p class="subtitle">
-        Gestione Lotti Vinicoli & Tracciabilità
+        Gestione lotti vinicoli & tracciabilità
       </p>
     </div>
   </header>
@@ -45,7 +45,7 @@ const closeMenu = () => (isMenuOpen.value = false);
 
 const menuLinks = [
   {
-    label: "Crea processi",
+    label: "Crea lotti",
     to: "/producer",
     roles: ['ADMIN'],
   },

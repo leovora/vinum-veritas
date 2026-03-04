@@ -2,7 +2,7 @@
   <div class="history-page-wrapper">
     <div class="history-container">
       <header class="page-header-central">
-        <h1 class="main-title">Registro Storico Filiera</h1>
+        <h1 class="main-title">Registro storico filiera</h1>
         <div class="title-divider"></div>
         <p class="subtitle">
           Archivio completo dei lotti
@@ -17,11 +17,11 @@
       <div v-else-if="lotti.length > 0" class="history-content animate-fade-in">
         <div class="stats-overview">
           <div class="stat-card">
-            <span class="stat-label">Totale Lotti</span>
+            <span class="stat-label">Totale lotti</span>
             <span class="stat-value">{{ lotti.length }}</span>
           </div>
           <div class="stat-card">
-            <span class="stat-label">Stato Sistema</span>
+            <span class="stat-label">Stato sistema</span>
             <span class="stat-value status-online">Operativo</span>
           </div>
         </div>
@@ -32,8 +32,8 @@
               <tr>
                 <th>ID</th>
                 <th>Tipologia</th>
-                <th>Stato Attuale</th>
-                <th>Data</th>
+                <th>Stato</th>
+                <th>Data creazione</th>
                 <th class="text-right">Azioni</th>
               </tr>
             </thead>
@@ -94,8 +94,7 @@ const loadHistory = async () => {
       "affinato",
       "imbottigliato",
       "spedito",
-      "distribuito",
-      "completato"
+      "distribuito"
     ];
 
     const statoControlloMap = [

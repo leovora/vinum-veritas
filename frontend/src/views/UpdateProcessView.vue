@@ -70,8 +70,7 @@ const loadLotti = async () => {
       "affinato",
       "imbottigliato",
       "spedito",
-      "distribuito",
-      "completato"
+      "distribuito"
     ];
 
     const statoControlloMap = [
@@ -110,11 +109,11 @@ const loadLotti = async () => {
         luoghi: storico.map(e => e.luogo),
 
         actors: {
-          Agricoltore: lottoData.agricoltore,
-          Supervisore: lottoData.supervisore,
-          Cantiniere: lottoData.cantiniere,
-          Corriere: lottoData.corriere,
-          Distributore: lottoData.distributore,
+          agricoltore: lottoData.agricoltore,
+          supervisore: lottoData.supervisore,
+          cantiniere: lottoData.cantiniere,
+          corriere: lottoData.corriere,
+          distributore: lottoData.distributore,
         }
       });
     }
