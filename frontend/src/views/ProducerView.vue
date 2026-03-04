@@ -1,9 +1,21 @@
+<!--
+  ProducerView.vue
+
+  Dashboard principale per la gestione della produzione vinicola.
+
+  Funzionalità principali:
+  - Sezione per creare nuovi lotti (Rosso, Bianco, Rosè)
+  - Visualizza lotti attivi e relativi stati
+  - Permette riabilitazione ed eliminazione
+-->
+
 <template>
   <div class="producer-page-wrapper">
     <UserStatusBar :role="userRole" />
 
     <main class="dashboard-main">
-
+      
+      <!-- Sezione creazione lotti: visibile solo ad ADMIN -->
       <section v-if="userRole === 'ADMIN'" class="card creation-section">
         <div class="card-title">
           <h2>Configurazione nuova produzione</h2>
@@ -15,22 +27,23 @@
         </div>
       </section>
 
+      <!-- Sezione gestione processi -->
       <section class="card processes-section">
         <div class="card-title">
           <h2>Gestione processi</h2>
         </div>
 
+        <!-- Stato di caricamento durante interazioni con blockchain -->
         <div v-if="loading" class="loading-overlay">
           Comunicazione con Blockchain in corso...
         </div>
 
+         <!-- Tabella dei processi attivi -->
         <ProcessTable
             v-else
             :lotti="activeLotti"
             :userRole="userRole" 
-            :avanza="avanzaStato"
             @elimina="handleEliminaLotto"
-            @fallimento="handleFallimentoEvent"
             @riabilita="handleRiabilitaEvent"
           />
       </section>
@@ -46,21 +59,22 @@ import ProcessTable from "../components/ProcessTable.vue";
 import UserStatusBar from "../components/UserStatusBar.vue";
 import { useToast } from '../components/utils/useToast.js';
 
+// Store utente e toast
 const { showToast } = useToast();
 const userStore = useUserStore();
 
-// INIEZIONE FUNZIONI DA APP.VUE
+// Iniezione funzioni 
 const contractInstance = inject("contractInstance");
-const onSegnalaProblema = inject("onSegnalaProblema");
 const onRiabilitaLotto = inject("onRiabilitaLotto");
 
+// Stati locali
 const lotti = ref([]);
 const loading = ref(false);
 
 const userRole = computed(() => userStore.role?.toUpperCase());
 const userAddress = computed(() => userStore.account);
 
-
+// Caricamento lotti
 const loadLotti = async () => {
   if (!contractInstance.value) return;
 
@@ -138,20 +152,15 @@ const loadLotti = async () => {
   }
 };
 
+// Filtra solo lotti non completati/eliminati
 const activeLotti = computed(() => lotti.value.filter(l => l.statoRaw !== 6));
 
-/* =========================
-   PONTE EVENTI (Tabella -> App.vue)
-========================= */
-const handleFallimentoEvent = (data) => {
-  console.log("ProducerView: Ricevuto segnale di blocco", data);
-  if (onSegnalaProblema) onSegnalaProblema(data, loadLotti);
-};
-
+// Emette funzione per riabiliatare lotto
 const handleRiabilitaEvent = (lotto) => {
   if (onRiabilitaLotto) onRiabilitaLotto(lotto, loadLotti);
 };
 
+// Chiama funzione smart contract per eliminare lotto
 const handleEliminaLotto = async (lotto) => {
   try {
     await contractInstance.value.methods
@@ -167,9 +176,7 @@ const handleEliminaLotto = async (lotto) => {
   }
 };
 
-/* =========================
-   AZIONI ADMIN
-========================= */
+// Chiama funzione smart contract per creare nuovo lotto
 const creaLotti = async (tipo, quantita, selections) => {
   if (userRole.value !== 'ADMIN') return;
   loading.value = true;
@@ -186,22 +193,7 @@ const creaLotti = async (tipo, quantita, selections) => {
   } finally { loading.value = false; }
 };
 
-// --- Avanza stato: usa ID reale e blocco revisione ---
-const avanzaStato = async (lotto) => {
-  if (userRole.value !== 'ADMIN') return;
-  if (lotto.inRevisione) {
-    showToast("Lotto in revisione. Impossibile avanzare.", "error");
-    return;
-  }
 
-  loading.value = true;
-  try {
-    await contractInstance.value.methods.avanzaStato(lotto.id, "Aggiornamento Admin")
-      .send({ from: userAddress.value });
-    await loadLotti();
-  } catch { showToast("Errore avanzamento", "error"); }
-  finally { loading.value = false; }
-};
 
 watch(() => contractInstance.value, async (val) => {
   if (val) await loadLotti();

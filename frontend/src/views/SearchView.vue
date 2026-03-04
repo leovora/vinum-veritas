@@ -1,3 +1,14 @@
+<!--
+  SearchView.vue
+
+  Pagina di monitoraggio e ricerca lotti per ID.
+
+  Funzionalità principali:
+  - Inserimento ID lotto e ricerca sulla blockchain
+  - Visualizzazione dettagli lotto tramite LottoCard
+  - Mostra messaggio di errore se l'ID non esiste
+-->
+
 <template>
   <div class="search-page-wrapper">
     <div class="search-lotti-container">
@@ -64,7 +75,7 @@ const isConnecting = computed(
   () => !contractInstance || !contractInstance.value
 );
 
-// ===================== HANDLE SEARCH =====================
+// Ricerca del lotto
 const handleSearch = async () => {
   const targetId = searchId.value.toString().trim();
 

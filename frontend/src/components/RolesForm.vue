@@ -1,3 +1,13 @@
+<!--
+  RolesForm.vue
+
+  Componente per l’assegnazione dei ruoli agli utenti.
+
+  Funzionalità:
+  - Inserimento address Ethereum, nome e ruolo
+  - Emissione evento "assign" verso il parent
+-->
+
 <template>
   <div class="role-form">
     <div class="form-row">
@@ -32,15 +42,17 @@
 import { reactive } from "vue";
 import { useToast } from '../components/utils/useToast.js';
 
+//Toast per messaggi di errore / successo
 const { showToast } = useToast();
 
 const props = defineProps({
-  availableRoles: {
+  availableRoles: { //array di ruoli selezionabili
     type: Array,
     required: true,
   },
 });
 
+//evento emesso verso il parent che chiama lo smart contract
 const emit = defineEmits(["assign"]);
 
 const newUser = reactive({
@@ -49,6 +61,12 @@ const newUser = reactive({
   name: "",
 });
 
+/**
+ * - Controlla che tutti i campi siano compilati
+ * - Mostra toast in caso di errore
+ * - Emette evento assign verso il parent
+ * - Reset dei campi dopo invio
+ */
 const submit = () => {
   if (!newUser.address || !newUser.role || !newUser.name) {
     showToast("Inserisci address, nome e ruolo", "error");

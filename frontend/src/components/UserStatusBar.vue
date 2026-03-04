@@ -1,3 +1,9 @@
+<!--
+  UserStatusBar.vue
+
+  Componente per mostrare il ruolo dell’utente loggato.
+-->
+
 <template>
   <div class="user-status-bar" v-if="role">
     Loggato come: <strong>{{ role }}</strong>

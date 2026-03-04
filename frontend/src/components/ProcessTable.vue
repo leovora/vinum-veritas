@@ -1,3 +1,10 @@
+<!--
+  ProcessTable.vue
+
+  Componente responsabile della visualizzazione tabellare dei lotti attivi
+  e della gestione delle azioni di avanzamento, segnalazione e riabilitazione.
+-->
+
 <template>
   <div class="process-table-container">
     <table class="process-table">
@@ -104,8 +111,12 @@ import { computed } from "vue";
 import IspezionaButton from "./IspezionaButton.vue";
 import { useUserStore } from "../stores/user";
 
+
+//Eventi emessi verso il componente padre.
+//Il parent è responsabile delle chiamate on-chain.
 const emit = defineEmits(["elimina", "fallimento", "riabilita"]);
 
+//Ruolo e address correnti derivati dallo store
 const userStore = useUserStore();
 const userRole = computed(() => userStore.role?.toUpperCase());
 const userAddress = computed(() => userStore.account);
@@ -116,6 +127,7 @@ const props = defineProps({
   avanza: { type: Function, default: null },
 });
 
+//Etichette leggibili per lo stato filiera
 const STATUS_LABELS = {
   creato: "In attesa",
   vendemmiato: "Vendemmiato",
@@ -127,17 +139,12 @@ const STATUS_LABELS = {
   revisione: "In Revisione",
 };
 
-const PROGRESS = {
-  creato: "14%",
-  vendemmiato: "28%",
-  fermentato: "42%",
-  affinato: "56%",
-  imbottigliato: "70%",
-  spedito: "85%",
-  distribuito: "100%",
-  revisione: "100%",
-};
-
+/**
+ * Definizione sequenziale delle fasi.
+ * 
+ * - stato: stato corrente necessario per abilitare il pulsante
+ * - role: ruolo autorizzato a eseguire l’azione
+ */
 const STEPS = [
   { stato: "creato", role: "AGRICOLTORE", label: "Vendemmia", icon: "🍇" },
   { stato: "vendemmiato", role: "SUPERVISORE", label: "Fermentazione", icon: "🧪" },
@@ -147,25 +154,30 @@ const STEPS = [
   { stato: "spedito", role: "DISTRIBUTORE", label: "Ricezione", icon: "🏢" },
 ];
 
-const getMotivazioneCompleta = (lotto) => {
-  if (lotto.motivazione) return lotto.motivazione;
-  return "Nessun dettaglio fornito.";
-};
-
-const getProgressWidth = (stato) => PROGRESS[stato] || "0%";
-
-const badgeClass = (tipo) =>
-  tipo.includes("Rosso") ? "b-rosso" : tipo.includes("Bianco") ? "b-bianco" : "b-rosa";
-
+/**
+ * Determina se l’utente può avanzare il lotto.
+ *
+ * Condizioni:
+ * - Il lotto non deve essere in revisione
+ * - Lo stato corrente deve combaciare
+ * - Il ruolo dell’utente deve essere autorizzato
+ */
 const canAdvance = (step, lotto) => {
   if (lotto.inRevisione) return false;
   return lotto.stato === step.stato && props.userRole === step.role;
 };
 
+const getMotivazioneCompleta = (lotto) => {
+  if (lotto.motivazione) return lotto.motivazione;
+  return "Nessun dettaglio fornito.";
+};
+
+//Avanzamento stato
 const handleAdvance = (lotto) => {
   if (props.avanza) props.avanza(lotto);
 };
 
+//Segnalazione problema
 const handleFail = (lotto) => {
   const motivazione = prompt("Descrivi il problema per il lotto #" + lotto.id + ":");
   if (motivazione && motivazione.trim() !== "") {
@@ -173,10 +185,18 @@ const handleFail = (lotto) => {
   }
 };
 
+//Riabilitazione lotto (solo Admin)
 const handleRiabilita = (lotto) => {
   emit('riabilita', lotto);
 };
 
+/**
+ * Filtra i lotti visibili nella tabella.
+ *
+ * - Esclude eliminati logicamente
+ * - Esclude completati
+ * - Se in revisione visibile all'admin
+ */
 const visibleLotti = computed(() => {
   return props.lotti.filter(lotto => {
 
@@ -189,6 +209,23 @@ const visibleLotti = computed(() => {
     return true;
   });
 });
+
+//Percentuale di completamento associata allo stato (per UI)
+const PROGRESS = {
+  creato: "14%",
+  vendemmiato: "28%",
+  fermentato: "42%",
+  affinato: "56%",
+  imbottigliato: "70%",
+  spedito: "85%",
+  distribuito: "100%",
+  revisione: "100%",
+};
+
+const getProgressWidth = (stato) => PROGRESS[stato] || "0%";
+
+const badgeClass = (tipo) =>
+  tipo.includes("Rosso") ? "b-rosso" : tipo.includes("Bianco") ? "b-bianco" : "b-rosa";
 
 </script>
 

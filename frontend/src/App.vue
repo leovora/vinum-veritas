@@ -1,3 +1,22 @@
+<!--
+  App.vue
+
+  Componente principale dell'applicazione
+  Gestisce:
+  - Inizializzazione Web3 / MetaMask
+  - Connessione a smart contract
+  - Caricamento rubrica utenti dalla blockchain
+  - Determinazione del ruolo dell'utente (ADMIN, AGRICOLTORE, SUPERVISORE, ecc.)
+  - Fornitura di alcune funzioni globali tramite provide(): 
+      - contractInstance
+      - registeredUsers
+      - refreshUsers
+      - onSegnalaProblema
+      - onRiabilitaLotto
+  - Visualizzazione SplashScreen durante la connessione
+  - Routing automatico in base al ruolo
+-->
+
 <template>
   <div id="app">
     <transition name="fade">
@@ -31,12 +50,10 @@ const userStore = useUserStore();
 const loading = ref(true);
 const contract = ref(null);
 
-// STATO DEGLI UTENTI REGISTRATI
+// Stato degli utenti registrati
 const registeredUsers = ref([]);
 
-/**
- * Funzione per caricare la rubrica nomi/indirizzi dalla blockchain
- */
+// Funzione per caricare la rubrica nomi/indirizzi dalla blockchain
 const loadUsers = async () => {
   if (!contract.value) {
     console.warn("LoadUsers: Contratto non ancora inizializzato");
@@ -64,9 +81,7 @@ const loadUsers = async () => {
   }
 };
 
-/**
- * Recupera il ruolo reale dell'utente dal contratto
- */
+// Recupera il ruolo dell'utente dal contratto
 const getUserRole = async (address) => {
   if (!contract.value) return "VISITATORE";
   try {
@@ -93,7 +108,7 @@ const getUserRole = async (address) => {
   }
 };
 
-
+// Gestisce la segnalazione di un problema nel processo di un lotto
 const onSegnalaProblema = async ({ lotto, motivazione }, reloadLotti) => {
   const accounts = await window.ethereum.request({ method: "eth_accounts" });
   await contract.value.methods.segnalaProblema(lotto.id, motivazione)
@@ -101,6 +116,7 @@ const onSegnalaProblema = async ({ lotto, motivazione }, reloadLotti) => {
   await reloadLotti()       
 };
 
+// Gestisce la riabilitazione di un lotto in revisione da parte dell'admin
 const onRiabilitaLotto = async (lotto, reloadLotti) => {
   const accounts = await window.ethereum.request({ method: "eth_accounts" });
 
@@ -111,13 +127,14 @@ const onRiabilitaLotto = async (lotto, reloadLotti) => {
 };
 
 
-// Forniamo le funzioni aggiornate
+// Provide delle funzioni globali
 provide("contractInstance", contract);
 provide("registeredUsers", registeredUsers);
 provide("refreshUsers", loadUsers);
 provide("onSegnalaProblema", onSegnalaProblema);
 provide("onRiabilitaLotto", onRiabilitaLotto);
 
+// Inizializzazione applicazione e connessione blockchain
 onMounted(async () => {
   console.log("Vinum Veritas — Avvio dApp");
 

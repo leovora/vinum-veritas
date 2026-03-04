@@ -1,3 +1,11 @@
+<!--
+ AppHeader.vue
+  
+ Componente responsabile della navigazione dell'applicazione.
+ Mostra le voci di menu in base al ruolo dell’utente autenticato, 
+ utilizzando lo store centrale
+-->
+
 <template>
   <header class="vinum-header">
     <div class="nav-wrapper">
@@ -34,15 +42,19 @@
 <script setup>
 import { ref, computed } from "vue";
 import { useUserStore } from '../stores/user'
-import { useRouter } from 'vue-router' 
 
 const userStore = useUserStore()
-const router = useRouter()
 
 const isMenuOpen = ref(false);
 const toggleMenu = () => (isMenuOpen.value = !isMenuOpen.value);
 const closeMenu = () => (isMenuOpen.value = false);
 
+/**
+ * Ogni link contiene:
+ * - label: testo visualizzato
+ * - to: rotta Vue Router
+ * - roles: ruoli autorizzati a visualizzare il link
+ */
 const menuLinks = [
   {
     label: "Crea lotti",
@@ -71,6 +83,9 @@ const menuLinks = [
   },
 ];
 
+/**
+ * Filtra i link in base al ruolo attuale dell'utente.
+ */
 const visibleLinks = computed(() =>
   menuLinks.filter((link) => link.roles.includes(userStore.role))
 );

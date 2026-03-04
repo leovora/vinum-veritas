@@ -1,3 +1,10 @@
+<!--
+  IspezionaButton.vue
+
+  Componente che permette l'apertura di un dialog di dettaglio
+  per visualizzare le informazioni complete di un lotto.
+-->
+
 <template>
   <div>
     <button @click="openDialog" class="btn-ispeziona">
@@ -18,6 +25,8 @@
 import { ref, computed } from 'vue';
 import LottoCard from './LottoCard.vue';
 
+
+//Il componente riceve un lotto già recuperato dallo smart contract
 const props = defineProps({
   lotto: { type: Object, required: true }
 });
@@ -26,15 +35,21 @@ const dialogVisible = ref(false);
 const openDialog = () => { dialogVisible.value = true; };
 const closeDialog = () => { dialogVisible.value = false; };
 
+/**
+ * lottoPulito:
+ * 
+ * Computed che costruisce una versione derivata del lotto,
+ * evitando di mutare direttamente props.lotto.
+ */
 const lottoPulito = computed(() => {
   if (!props.lotto) return null;
 
   const inRevisione = !!props.lotto.inRevisione;
   const eliminato = !!props.lotto.eliminato;
+  
+  //Rimozione evento iniziale di creazione
   const luoghi = props.lotto.luoghi?.filter(l => !l.includes("Creazione lotto")) || [];
   const timestampsPuliti = props.lotto.timestamps?.slice(luoghi.length === props.lotto.luoghi.length ? 0 : 1) || [];
-
-  console.log("Actors ricevuti:", props.lotto.actors);
 
   return {
     ...props.lotto,

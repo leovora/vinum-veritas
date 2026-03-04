@@ -1,3 +1,14 @@
+<!--
+  RolesView.vue
+
+  Pagina per la gestione dei ruoli utenti (visibile solo ad ADMIN).
+
+  Funzionalità principali:
+  - Registrazione di nuovi utenti nella blockchain tramite RolesForm
+  - Visualizzazione utenti registrati in tabella con UsersTable
+  - Possibilità di rimuovere utenti, con gestione errori se coinvolti in lotti attivi
+-->
+
 <template>
   <div class="producer-page-wrapper">
     <main class="dashboard-main">
@@ -49,12 +60,11 @@ const contractInstance = inject("contractInstance");
 const registeredUsers = inject("registeredUsers", ref([])); 
 const refreshUsers = inject("refreshUsers"); 
 
-// LISTA LOCALE DI APPOGGIO
+// Stato locale
 const localUsers = ref([]);
-
 const adminAddress = computed(() => userStore.account);
-const adminRole = computed(() => userStore.role);
 
+// Ruoli per form
 const availableRoles = [
   { value: "ADMIN", label: "Amministratore" },
   { value: "AGRICOLTORE", label: "Produttore" },
@@ -66,25 +76,25 @@ const availableRoles = [
 
 // Uniamo i dati della blockchain con quelli appena aggiunti localmente
 const displayUsers = computed(() => {
-  // Se la blockchain ha dati, usa quelli. Se è vuota (es. dopo reset), usa la lista locale.
   return registeredUsers.value.length > 0 ? registeredUsers.value : localUsers.value;
 });
 
+// Salvataggio nuovo utente
 const handleRegisterUser = async ({ address, role, name }) => {
 
   try {
     console.log(`Registrazione di: ${name}...`);
 
-    // 1. SALVATAGGIO BLOCKCHAIN
+    // Salvataggio blockchain
     await contractInstance.value.methods
       .addUser(address, name, role)
       .send({ from: adminAddress.value });
 
-    // 2. AGGIORNAMENTO LOCALE IMMEDIATO (così vedi subito la riga)
+    // Aggiornamento locale
     const newUser = { address, name, role };
     localUsers.value.push(newUser);
 
-    // 3. AGGIORNAMENTO GLOBALE
+    // Aggiornamento globale
     if (refreshUsers) await refreshUsers();
 
     showToast(`Utente ${name} registrato con successo!`, "success");
@@ -94,6 +104,8 @@ const handleRegisterUser = async ({ address, role, name }) => {
   }
 };
 
+
+// Rimozione utente
 const removeUser = async (address) => {
 
   try {

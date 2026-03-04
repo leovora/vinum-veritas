@@ -1,3 +1,11 @@
+<!--
+  CreationCard.vue
+
+  Componente responsabile della creazione di un nuovo lotto.
+  Gestisce l’assegnazione dei ruoli della filiera
+  e delega al componente padre la creazione on-chain.
+-->
+
 <template>
   <div class="creation-card" :class="[linea, cardHeightClass]">
     <div class="card-header">
@@ -79,6 +87,14 @@
 <script setup>
 import { ref, inject, computed } from "vue";
 
+/**
+ * Props ricevute dal componente padre.
+ * 
+ * - lineaText: nome della linea produttiva
+ * - linea: classe CSS identificativa
+ * - btnClass: stile dinamico del bottone
+ * - onCreate: funzione callback che esegue la creazione on-chain
+ */
 const props = defineProps({
   lineaText: String,
   linea: String,
@@ -87,10 +103,11 @@ const props = defineProps({
 });
 
 const registeredUsers = inject("registeredUsers", ref([]));
-
 const currentStep = ref(0);
 const quantita = ref(1);
 
+
+//Catena dei ruoli della filiera
 const rolesChain = [
   "AGRICOLTORE",
   "SUPERVISORE",
@@ -99,6 +116,7 @@ const rolesChain = [
   "DISTRIBUTORE",
 ];
 
+//Oggetto reattivo che mappa: ruolo → address selezionato
 const selections = ref(
   rolesChain.reduce((acc, role) => {
     acc[role] = "";
@@ -106,26 +124,37 @@ const selections = ref(
   }, {})
 );
 
+//Numero totale di step
 const totalSteps = computed(() => rolesChain.length + 1);
+//Ruolo attuale in base allo step
 const currentRole = computed(() => rolesChain[currentStep.value]);
-
+//Gestisce l'altezza della card
 const cardHeightClass = computed(() =>
   currentStep.value < rolesChain.length ? "card-compact" : "card-expanded"
 );
 
+//Filtra gli utenti in base al ruolo richiesto
 const getUsersByRole = (role) =>
   registeredUsers.value.filter((u) => u.role === role);
 
+//Formattazione del ruolo per la UI
 const formatLabel = (role) => role.toLowerCase();
 
+//Avanza allo step successivo
 const nextStep = () => {
   if (currentStep.value < totalSteps.value - 1) currentStep.value++;
 };
 
+//Torna allo step precedente
 const prevStep = () => {
   if (currentStep.value > 0) currentStep.value--;
 };
 
+/**
+ * Funzione finale di creazione che
+ * delegazione al parent la creazione on-chain.
+ * Dopo la chiamata reset completo dello stato locale
+ */
 const handleCreate = () => {
   props.onCreate(props.lineaText, quantita.value, selections.value);
 
@@ -134,6 +163,7 @@ const handleCreate = () => {
   rolesChain.forEach((r) => (selections.value[r] = ""));
 };
 
+//Recupera il nome leggibile dell’utente selezionato.
 const getSelectedUserName = (role) => {
   const address = selections.value[role];
   if (!address) return "Non assegnato";

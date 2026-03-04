@@ -1,3 +1,12 @@
+<!--
+  SupervisorView.vue
+
+  Vista principale per supervisori e operatori della filiera.
+  Mostra i processi attivi dei lotti e permette di avanzare
+  lo stato dei lotti, segnalare problemi e riabilitare lotti
+  bloccati.
+-->
+
 <template>
   <div class="producer-page-wrapper">
     <UserStatusBar :role="userRole" />
@@ -33,27 +42,23 @@ import UserStatusBar from "../components/UserStatusBar.vue";
 import { getSimulatedLocation } from "../components/utils/locationSimulator.js";
 import { useToast } from "../components/utils/useToast.js";
 
-// --- Inizializzazione Store e Servizi ---
+// Inizializzazione store
 const { showToast } = useToast();
 const userStore = useUserStore();
 
-// --- Iniezione dipendenze da App.vue ---
+// Iniezione dipendenze da App.vue
 const contractInstance = inject("contractInstance");
 const onSegnalaProblema = inject("onSegnalaProblema");
 const onRiabilitaLotto = inject("onRiabilitaLotto");
 
-// --- Stato Reattivo ---
+// Stato locale
 const lotti = ref([]);
 const loading = ref(false);
 
-// --- Proprietà Computate ---
 const userRole = computed(() => userStore.role);
 const userAddress = computed(() => userStore.account);
 
-/**
- * Caricamento lotti dal contratto intelligente
- * Logica sincronizzata con HistoryView per evitare sfasamenti tra Fasi e Timestamp
- */
+// Caricamento lotti da smart contract
 const loadLotti = async () => {
   if (!contractInstance.value) return;
   loading.value = true;
@@ -128,22 +133,19 @@ const loadLotti = async () => {
   }
 };
 
-/**
- * Gestione evento di segnalazione problema (da Tabella)
- */
+
+// Gestione evento di segnalazione problema
 const handleFallimentoEvent = (data) => {
   console.log("VIEW: Ricevuto @fallimento, chiamo onSegnalaProblema");
   if (onSegnalaProblema) onSegnalaProblema(data, loadLotti);
 };
 
-/**
- * Gestione evento di riabilitazione lotto (da Tabella)
- */
+// Gestione evento di riabilitazione lotto
 const handleRiabilitaEvent = (lotto) => {
   if (onRiabilitaLotto) onRiabilitaLotto(lotto, loadLotti);
 };
 
-// --- Avanzamento dello stato del processo ---
+// Avanzamento dello stato del processo
 const avanzaStato = async (lotto) => {
   if (!contractInstance.value) return;
 
@@ -169,7 +171,7 @@ const avanzaStato = async (lotto) => {
   }
 };
 
-// --- Filtro dei lotti basato su inRevisione reale ---
+// Filtro dei lotti basato su ruolo utente e stato "inRevisione"
 const filteredLotti = computed(() => {
   return lotti.value.filter((lotto) => {
     if (lotto.inRevisione) {
@@ -187,7 +189,7 @@ const filteredLotti = computed(() => {
   });
 });
 
-// --- Watcher per istanza contratto ---
+// Watcher per istanza contratto
 watch(
   () => contractInstance.value,
   async (val) => {

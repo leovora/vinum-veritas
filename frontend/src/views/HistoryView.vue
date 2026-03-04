@@ -1,3 +1,9 @@
+<!--
+  HistoryView.vue
+
+  Pagina per visualizzare lo storico completo dei lotti vinicoli.
+-->
+
 <template>
   <div class="history-page-wrapper">
     <div class="history-container">
@@ -72,23 +78,27 @@
 import { ref, inject, onMounted } from "vue";
 import IspezionaButton from "../components/IspezionaButton.vue";
 
+//Contract instance iniettata dal parent
+//Serve per leggere lo storico dei lotti dalla blockchain
 const contractInstance = inject("contractInstance");
 
+//Stato locale del componente
 const lotti = ref([]);
 const loading = ref(true);
 
+//Funzione di caricamento dello storico
 const loadHistory = async () => {
   if (!contractInstance?.value) return;
 
   loading.value = true;
 
   try {
-    const ids = await contractInstance.value.methods
-      .getAllLottoIds()
-      .call();
+    // Ottiene tutti gli ID dei lotti presenti sul contratto
+    const ids = await contractInstance.value.methods.getAllLottoIds().call();
 
+    // Mappe per tradurre gli enum numerici in stringhe leggibili
     const statoFilieraMap = [
-      "creato",
+      "creato", 
       "vendemmiato",
       "fermentato",
       "affinato",
@@ -96,25 +106,19 @@ const loadHistory = async () => {
       "spedito",
       "distribuito"
     ];
-
     const statoControlloMap = [
       "attivo",
-      "revisione",
+      "revisione", 
       "eliminato"
     ];
 
     const lottiCaricati = [];
 
     for (const id of ids) {
-      const lottoData = await contractInstance.value.methods
-        .getLotto(id)
-        .call();
-      
-      console.log(lottoData);
-
-      const storico = await contractInstance.value.methods
-        .getStorico(id)
-        .call();
+      // Dati principali del lotto
+      const lottoData = await contractInstance.value.methods.getLotto(id).call();
+      // Storico avanzamenti del lotto
+      const storico = await contractInstance.value.methods.getStorico(id).call();
 
       const statoFilieraRaw = Number(lottoData.stato);
       const statoControlloRaw = Number(lottoData.statoControllo);
@@ -122,12 +126,14 @@ const loadHistory = async () => {
       const timestamps = storico.map(e => Number(e.timestamp));
       const luoghi = storico.map(e => e.luogo);
 
+      // Funzione per determinare label leggibile dello stato
       const getStatusLabel = (statoFilieraRaw, statoControlloRaw) => {
         if (statoControlloRaw === 1) return "In revisione";
         if (statoControlloRaw === 2) return "Bloccato";
         return statoFilieraMap[statoFilieraRaw];
       };
 
+      // Costruzione oggetto lotto per la UI
       lottiCaricati.push({
         id: lottoData.id.toString(),
         tipo: lottoData.tipo,

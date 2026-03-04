@@ -1,3 +1,16 @@
+<!--
+  LottoCard.vue
+
+  Componente di presentazione che visualizza lo stato completo
+  di un lotto.
+
+  Mostra:
+  - Stato amministrativo (revisione / eliminazione)
+  - Tipo di vino
+  - Avanzamento della filiera
+  - Timestamp e luoghi registrati on-chain
+-->
+
 <template>
   <div class="lotto-card card animate-fade-in">
     <div
@@ -97,6 +110,7 @@ const props = defineProps({
   },
 });
 
+//Mappatura delle fasi della filiera
 const PHASES = [
   { name: "Vendemmia", role: "agricoltore" },
   { name: "Fermentazione", role: "supervisore" },
@@ -106,6 +120,7 @@ const PHASES = [
   { name: "Ricezione", role: "distributore" },
 ];
 
+//Computed che assegna una classe CSS in base al tipo di vino
 const tipoClass = computed(() => {
   if (!props.lotto.tipo) return "";
 
@@ -117,8 +132,6 @@ const tipoClass = computed(() => {
 
   return "";
 });
-
-console.log(props.lotto.tipo)
 
 </script>
 

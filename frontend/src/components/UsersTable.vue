@@ -1,3 +1,10 @@
+<!--
+  UsersTable.vue
+
+  Componente tabellare per la visualizzazione degli utenti registrati
+  e la gestione delle azioni amministrative sui ruoli.
+-->
+
 <template>
   <table class="users-table">
     <thead class="table-header">
@@ -39,11 +46,14 @@ const props = defineProps({
   },
 });
 
+//evento emesso verso il parent per la rimozione di un utente
 const emit = defineEmits(["remove"]);
 
+//Restituisce la label leggibile di un ruolo
 const getRoleLabel = (role) =>
   props.availableRoles.find((r) => r.value === role)?.label || role;
 
+//Funzione di rimozione utente
 const remove = (address) => {
   if (confirm("Vuoi davvero rimuovere questo utente?")) {
     emit("remove", address);
