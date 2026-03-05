@@ -1,11 +1,22 @@
+<!--
+  SearchView.vue
+
+  Pagina di monitoraggio e ricerca lotti per ID.
+
+  Funzionalità principali:
+  - Inserimento ID lotto e ricerca sulla blockchain
+  - Visualizzazione dettagli lotto tramite LottoCard
+  - Mostra messaggio di errore se l'ID non esiste
+-->
+
 <template>
   <div class="search-page-wrapper">
     <div class="search-lotti-container">
       <header class="page-header-central">
-        <h1 class="main-title">Monitoraggio Globale Lotti</h1>
+        <h1 class="main-title">Monitoraggio globale lotti</h1>
         <div class="title-divider"></div>
         <p class="subtitle">
-          Analisi tecnica e tracciabilità del registro distribuito
+          Consulta l'origine e la cronologia completa di ogni lotto.
         </p>
       </header>
 
@@ -14,7 +25,7 @@
           <input
             v-model="searchId"
             type="number"
-            placeholder="Inserisci l'ID del Lotto (es. 1)"
+            placeholder="Inserisci l'ID del lotto"
             @keyup.enter="handleSearch"
           />
           <button
@@ -53,7 +64,6 @@ import LottoCard from "../components/LottoCard.vue";
 import { useToast } from '../components/utils/useToast.js';
 
 const { showToast } = useToast();
-
 const contractInstance = inject("contractInstance");
 
 const searchId = ref("");
@@ -65,68 +75,62 @@ const isConnecting = computed(
   () => !contractInstance || !contractInstance.value
 );
 
-const STATUS_LABELS = [
-  "creato",
-  "vendemmiato",
-  "fermentato",
-  "affinato",
-  "imbottigliato",
-  "spedito",
-  "distribuito",
-];
-
-// ===================== HANDLE SEARCH =====================
+// Ricerca del lotto
 const handleSearch = async () => {
-  if (isConnecting.value) return;
+  const targetId = searchId.value.toString().trim();
 
-  const visualId = Number(searchId.value);
-  if (!visualId || visualId < 1) {
-    showToast("Inserisci un ID valido (partendo da 1)", "error");
+  if (!targetId || Number(targetId) < 1) {
+    showToast("Inserisci un ID valido", "error");
     return;
   }
 
   loading.value = true;
-  hasSearched.value = true;
   lottoDettaglio.value = null;
 
   try {
-    const index = visualId - 1;
-    const res = await contractInstance.value.methods.getLotto(index).call();
+    const lottoData = await contractInstance.value.methods
+      .getLotto(targetId)
+      .call();
 
-    if (res && res.id.toString() !== "0") {
-      const tsArray = res.timestamps.map(t => Number(t));
-      const luoghiArray = res.luoghi;
+    const storico = await contractInstance.value.methods
+      .getStorico(targetId)
+      .call();
 
-      lottoDettaglio.value = {
-        id: res.id.toString(),
-        tipo: res.tipo,
-        statoRaw: Number(res.stato),
-        statusLabel: STATUS_LABELS[Number(res.stato)],
-        statusClass: `status-${res.stato}`,
-        actors: {
-          Agricoltore: res.agricoltore,
-          Supervisore: res.supervisore,
-          Cantiniere: res.cantiniere,
-          Corriere: res.corriere,
-          Distributore: res.distributore,
-        },
-        timestamps: tsArray.slice(1),
-        luoghi: luoghiArray.slice(1),
-      };
-    }
+    const statoFilieraRaw = Number(lottoData.stato);
+    const statoControlloRaw = Number(lottoData.statoControllo);
+
+    lottoDettaglio.value = {
+      id: lottoData.id.toString(),
+      tipo: lottoData.tipo,
+      statoRaw: statoFilieraRaw,
+      eliminato: statoControlloRaw === 2,
+      inRevisione: statoControlloRaw === 1,
+      motivazione: lottoData.motivoRevisione,
+      timestamps: storico.slice(1).map(e => Number(e.timestamp)),
+      luoghi: storico.slice(1).map(e => e.luogo),
+      actors: {
+          agricoltore: lottoData.agricoltore,
+          supervisore: lottoData.supervisore,
+          cantiniere: lottoData.cantiniere,
+          corriere: lottoData.corriere,
+          distributore: lottoData.distributore,
+        }
+    };
+
+    console.log("AAAAA" + lottoDettaglio.value.statoControllo)
+
   } catch (err) {
-    console.error("Errore ricerca lotto:", err);
-    lottoDettaglio.value = null;
+    showToast("Lotto inesistente", "error");
   } finally {
     loading.value = false;
   }
 };
-</script>
 
+</script>
 
 <style scoped>
 .search-page-wrapper {
-  background: #fff;
+  background: #fdfdfd;
   min-height: 100vh;
 }
 
@@ -160,7 +164,6 @@ const handleSearch = async () => {
   font-size: 1.1rem;
 }
 
-/* CARD GENERICHE DI PAGINA */
 .card {
   border: 1px solid #eee;
   background: #fff;
@@ -170,11 +173,6 @@ const handleSearch = async () => {
   box-shadow: 0 4px 15px rgba(0,0,0,0.03);
 }
 
-.filter-section {
-  margin-bottom: 30px;
-}
-
-/* SEARCH BAR */
 .search-bar {
   display: flex;
   gap: 12px;
@@ -194,14 +192,32 @@ const handleSearch = async () => {
   outline: none;
 }
 
-/* ERROR */
+.btn-primary {
+  background: #c0392b;
+  color: white;
+  border: none;
+  padding: 0 25px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #a93226;
+}
+
+.btn-primary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
 .error-box {
   text-align: center;
   color: #c0392b;
   padding: 40px;
 }
 
-/* ANIMAZIONE */
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out;
 }
@@ -216,5 +232,4 @@ const handleSearch = async () => {
     transform: translateY(0);
   }
 }
-
 </style>

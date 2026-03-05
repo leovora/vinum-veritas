@@ -1,3 +1,9 @@
+<!--
+  Toast.vue
+
+  Componente presentazionale per notifiche (success, error, info).
+-->
+
 <template>
   <div :class="['toast', type]">
     <div class="icon">

@@ -1,3 +1,22 @@
+<!--
+  App.vue
+
+  Componente principale dell'applicazione
+  Gestisce:
+  - Inizializzazione Web3 / MetaMask
+  - Connessione a smart contract
+  - Caricamento rubrica utenti dalla blockchain
+  - Determinazione del ruolo dell'utente (ADMIN, AGRICOLTORE, SUPERVISORE, ecc.)
+  - Fornitura di alcune funzioni globali tramite provide(): 
+      - contractInstance
+      - registeredUsers
+      - refreshUsers
+      - onSegnalaProblema
+      - onRiabilitaLotto
+  - Visualizzazione SplashScreen durante la connessione
+  - Routing automatico in base al ruolo
+-->
+
 <template>
   <div id="app">
     <transition name="fade">
@@ -15,7 +34,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, provide, watch } from "vue";
+import { ref, onMounted, provide } from "vue";
 import { useRouter } from "vue-router";
 import Web3 from "web3";
 
@@ -31,12 +50,10 @@ const userStore = useUserStore();
 const loading = ref(true);
 const contract = ref(null);
 
-// STATO DEGLI UTENTI REGISTRATI (Reattivo per i componenti figli)
+// Stato degli utenti registrati
 const registeredUsers = ref([]);
 
-/**
- * Funzione per caricare la rubrica nomi/indirizzi dalla blockchain
- */
+// Funzione per caricare la rubrica nomi/indirizzi dalla blockchain
 const loadUsers = async () => {
   if (!contract.value) {
     console.warn("LoadUsers: Contratto non ancora inizializzato");
@@ -49,10 +66,7 @@ const loadUsers = async () => {
     
     const usersData = [];
     for (let addr of addresses) {
-      // Recuperiamo i dati (struct User) per ogni indirizzo
       const info = await contract.value.methods.users(addr).call();
-      
-      // Assicuriamoci di mappare correttamente i nomi dei campi dello struct
       usersData.push({
         address: addr,
         name: info.name,
@@ -67,26 +81,17 @@ const loadUsers = async () => {
   }
 };
 
-// Forniamo l'istanza del contratto e la lista utenti a tutti i figli
-provide("contractInstance", contract);
-provide("registeredUsers", registeredUsers);
-provide("refreshUsers", loadUsers);
-
-/**
- * Recupera il ruolo reale dell'utente dal contratto
- */
+// Recupera il ruolo dell'utente dal contratto
 const getUserRole = async (address) => {
   if (!contract.value) return "VISITATORE";
   try {
     const roleHash = await contract.value.methods.roles(address).call();
     
-    // Controllo hash vuoto
     if (!roleHash || roleHash === "0x0000000000000000000000000000000000000000000000000000000000000000") {
       return "VISITATORE";
     }
 
     const web3 = new Web3(window.ethereum);
-    // Mappatura hash -> stringa leggibile
     const rolesMap = {
       [web3.utils.keccak256("ADMIN")]: "ADMIN",
       [web3.utils.keccak256("AGRICOLTORE")]: "AGRICOLTORE",
@@ -103,6 +108,33 @@ const getUserRole = async (address) => {
   }
 };
 
+// Gestisce la segnalazione di un problema nel processo di un lotto
+const onSegnalaProblema = async ({ lotto, motivazione }, reloadLotti) => {
+  const accounts = await window.ethereum.request({ method: "eth_accounts" });
+  await contract.value.methods.segnalaProblema(lotto.id, motivazione)
+    .send({ from: accounts[0] });      
+  await reloadLotti()       
+};
+
+// Gestisce la riabilitazione di un lotto in revisione da parte dell'admin
+const onRiabilitaLotto = async (lotto, reloadLotti) => {
+  const accounts = await window.ethereum.request({ method: "eth_accounts" });
+
+  await contract.value.methods
+    .riabilitaLotto(lotto.id)
+    .send({ from: accounts[0] });
+  await reloadLotti()
+};
+
+
+// Provide delle funzioni globali
+provide("contractInstance", contract);
+provide("registeredUsers", registeredUsers);
+provide("refreshUsers", loadUsers);
+provide("onSegnalaProblema", onSegnalaProblema);
+provide("onRiabilitaLotto", onRiabilitaLotto);
+
+// Inizializzazione applicazione e connessione blockchain
 onMounted(async () => {
   console.log("Vinum Veritas — Avvio dApp");
 
@@ -112,7 +144,6 @@ onMounted(async () => {
     return;
   }
 
-  // Ricarica la pagina se l'utente cambia account o rete
   window.ethereum.on("accountsChanged", () => window.location.reload());
   window.ethereum.on("chainChanged", () => window.location.reload());
 
@@ -123,33 +154,20 @@ onMounted(async () => {
 
     const account = accounts[0];
     const networkId = await web3.eth.net.getId();
-    console.log("Rete rilevata:", networkId);
     const deployed = WineProductionJSON.networks[networkId];
-    console.log("Dati contratto sulla rete:", deployed);
+
     if (!deployed) {
-      throw new Error("Contratto non trovato sulla rete corrente (hai fatto truffle migrate?)");
+      throw new Error("Contratto non trovato (hai fatto truffle migrate?)");
     }
 
-    contract.value = new web3.eth.Contract(
-      WineProductionJSON.abi,
-      deployed.address
+    contract.value = new web3.eth.Contract(WineProductionJSON.abi, deployed.address);
 
-    
-    );
-
-    // 1. Carichiamo subito la rubrica utenti registrati
     await loadUsers();
-
-    // 2. Recupero RUOLO dell'utente connesso
     const role = await getUserRole(account);
     userStore.setUser(account, role);
 
-    console.log("Inizializzazione completata:", { account, role });
-
     setTimeout(() => {
       loading.value = false;
-      
-      // Routing iniziale basato sul ruolo
       if (userStore.isAdmin) {
         router.replace("/producer");
       } else if (role === "VISITATORE") {

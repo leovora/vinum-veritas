@@ -1,3 +1,10 @@
+<!--
+  SplashView.vue
+
+  Pagina iniziale dell'applicazione.
+  Mostra il logo e un indicatore di caricamento
+  mentre avviene la connessione alla blockchain.
+-->
 
 <template>
   <div class="splash-container">
@@ -8,17 +15,6 @@
     </div>
   </div>
 </template>
-
-<style>
-/* Reset globale per rimuovere margini bianchi e scrollbar indesiderate */
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden; /* Impedisce lo scroll durante il caricamento */
-}
-</style>
 
 <style scoped>
 html, body {

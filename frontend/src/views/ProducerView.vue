@@ -1,12 +1,24 @@
+<!--
+  ProducerView.vue
+
+  Dashboard principale per la gestione della produzione vinicola.
+
+  Funzionalità principali:
+  - Sezione per creare nuovi lotti (Rosso, Bianco, Rosè)
+  - Visualizza lotti attivi e relativi stati
+  - Permette riabilitazione ed eliminazione
+-->
+
 <template>
   <div class="producer-page-wrapper">
     <UserStatusBar :role="userRole" />
 
     <main class="dashboard-main">
-
+      
+      <!-- Sezione creazione lotti: visibile solo ad ADMIN -->
       <section v-if="userRole === 'ADMIN'" class="card creation-section">
         <div class="card-title">
-          <h2>Configurazione Nuova Produzione</h2>
+          <h2>Configurazione nuova produzione</h2>
         </div>
         <div class="creation-grid">
           <CreationCard lineaText="Rosso" linea="rosso" btnClass="btn-rosso" :onCreate="creaLotti" />
@@ -15,22 +27,25 @@
         </div>
       </section>
 
+      <!-- Sezione gestione processi -->
       <section class="card processes-section">
         <div class="card-title">
-          <h2>{{ userRole === 'ADMIN' ? 'Gestione Processi Blockchain' : 'Stato Globale Filiera' }}</h2>
+          <h2>Gestione processi</h2>
         </div>
 
+        <!-- Stato di caricamento durante interazioni con blockchain -->
         <div v-if="loading" class="loading-overlay">
           Comunicazione con Blockchain in corso...
         </div>
 
+         <!-- Tabella dei processi attivi -->
         <ProcessTable
-          v-else
-          :lotti="activeLotti"
-          :userRole="userRole === 'ADMIN' ? 'ADMIN' : 'VISITATORE'"
-          :avanza="userRole === 'ADMIN' ? avanzaStato : null"
-          @elimina="handleEliminaLotto"
-        />
+            v-else
+            :lotti="activeLotti"
+            :userRole="userRole" 
+            @elimina="handleEliminaLotto"
+            @riabilita="handleRiabilitaEvent"
+          />
       </section>
     </main>
   </div>
@@ -44,141 +59,141 @@ import ProcessTable from "../components/ProcessTable.vue";
 import UserStatusBar from "../components/UserStatusBar.vue";
 import { useToast } from '../components/utils/useToast.js';
 
+// Store utente e toast
 const { showToast } = useToast();
-
 const userStore = useUserStore();
-const contractInstance = inject("contractInstance");
 
+// Iniezione funzioni 
+const contractInstance = inject("contractInstance");
+const onRiabilitaLotto = inject("onRiabilitaLotto");
+
+// Stati locali
 const lotti = ref([]);
 const loading = ref(false);
 
 const userRole = computed(() => userStore.role?.toUpperCase());
 const userAddress = computed(() => userStore.account);
 
-/* STATUS / PROGRESS */
-const getStatusLabel = (stato) => ({
-  creato: "In attesa di vendemmia",
-  vendemmiato: "Vendemmiato",
-  fermentato: "Fermentato",
-  affinato: "Affinato",
-  imbottigliato: "Imbottigliato",
-  spedito: "Spedito",
-  distribuito: "Ricezione confermata",
-}[stato] || "Finito");
-
-/* =========================
-   LOAD LOTTI ATTIVI
-========================= */
+// Caricamento lotti
 const loadLotti = async () => {
   if (!contractInstance.value) return;
 
   loading.value = true;
+
   try {
-    const data = await contractInstance.value.methods.getLotti().call();
+    const ids = await contractInstance.value.methods
+      .getAllLottoIds()
+      .call();
 
-    lotti.value = data
-      .map((l, index) => {
-        const statoStr = [
-          "creato",
-          "vendemmiato",
-          "fermentato",
-          "affinato",
-          "imbottigliato",
-          "spedito",
-          "distribuito",
-        ][Number(l.stato)];
+    const lottiCaricati = [];
 
-        const tsArray = l.timestamps?.map((t) => Number(t)) || [];
-        const luoghiArray = l.luoghi || [];
+    for (const id of ids) {
+      const lottoData = await contractInstance.value.methods
+        .getLotto(id)
+        .call();
+      
+      console.log("STATO:" + lottoData.stato)
 
-        const faseTimestamps = tsArray.slice(1);
-        const faseLuoghi = luoghiArray.slice(1);
+      const storico = await contractInstance.value.methods
+        .getStorico(id)
+        .call();
 
-        return {
-          blockchainIndex: index,
-          id: l.id.toString(),
-          tipo: l.tipo,
-          stato: statoStr,
-          statoRaw: Number(l.stato),
-          statusLabel: getStatusLabel(statoStr),
-          statusClass: `status-${l.stato}`,
-          actors: {
-            Agricoltore: l.agricoltore,
-            Supervisore: l.supervisore,
-            Cantiniere: l.cantiniere,
-            Corriere: l.corriere,
-            Distributore: l.distributore,
-          },
-          timestamps: faseTimestamps,
-          luoghi: faseLuoghi,
-        };
-      })
-      // solo lotti non ancora distribuiti
-      .filter((l) => l.statoRaw < 6);
+      const statoFilieraMap = [
+        "creato",
+        "vendemmiato",
+        "fermentato",
+        "affinato",
+        "imbottigliato",
+        "spedito",
+        "distribuito"
+      ];
+
+      const statoControlloMap = [
+        "attivo",
+        "revisione",
+        "eliminato"
+      ];
+
+      const statoFilieraRaw = Number(lottoData.stato);
+      const statoControlloRaw = Number(lottoData.statoControllo);
+
+      lottiCaricati.push({
+        id: lottoData.id.toString(),
+        tipo: lottoData.tipo,
+
+        stato: statoFilieraMap[statoFilieraRaw],
+        statoRaw: statoFilieraRaw,
+
+        statoControllo: statoControlloMap[statoControlloRaw],
+        inRevisione: statoControlloRaw === 1,
+
+        motivazione: lottoData.motivoRevisione || null,
+
+        timestamps: storico.map(e => Number(e.timestamp)),
+        luoghi: storico.map(e => e.luogo),
+
+        actors: {
+          agricoltore: lottoData.agricoltore,
+          supervisore: lottoData.supervisore,
+          cantiniere: lottoData.cantiniere,
+          corriere: lottoData.corriere,
+          distributore: lottoData.distributore,
+        }
+      });
+    }
+
+    lotti.value = lottiCaricati;
+
   } catch (err) {
-    console.error("Errore caricamento:", err);
-    showToast("Errore nel caricamento dei processi", "error");
+    console.error("Errore caricamento lotti:", err);
+    showToast("Errore sincronizzazione blockchain", "error");
   } finally {
     loading.value = false;
   }
 };
 
+// Filtra solo lotti non completati/eliminati
+const activeLotti = computed(() => lotti.value.filter(l => l.statoRaw !== 6));
 
-// solo lotti attivi (non completati)
-const activeLotti = computed(() => lotti.value.filter(l => l.stato !== "finito"));
+// Emette funzione per riabiliatare lotto
+const handleRiabilitaEvent = (lotto) => {
+  if (onRiabilitaLotto) onRiabilitaLotto(lotto, loadLotti);
+};
 
-/* =========================
-   CREAZIONE LOTTI
-========================= */
+// Chiama funzione smart contract per eliminare lotto
+const handleEliminaLotto = async (lotto) => {
+  try {
+    await contractInstance.value.methods
+      .eliminaLotto(lotto.id)
+      .send({ from: userStore.account });
+
+    showToast("Lotto eliminato con successo", "success");
+
+    // Aggiorna i lotti locali per nascondere quello eliminato
+    lotti.value = lotti.value.filter(l => l.id !== lotto.id);
+  } catch (err) {
+    showToast("Errore eliminazione lotto", "error");
+  }
+};
+
+// Chiama funzione smart contract per creare nuovo lotto
 const creaLotti = async (tipo, quantita, selections) => {
   if (userRole.value !== 'ADMIN') return;
   loading.value = true;
   try {
     for (let i = 0; i < quantita; i++) {
       await contractInstance.value.methods
-        .creaLotto(
-          tipo, 
-          selections.AGRICOLTORE,
-          selections.SUPERVISORE,
-          selections.CANTINIERE,
-          selections.CORRIERE,
-          selections.DISTRIBUTORE
-        )
+        .creaLotto(tipo, selections.AGRICOLTORE, selections.SUPERVISORE, selections.CANTINIERE, selections.CORRIERE, selections.DISTRIBUTORE)
         .send({ from: userAddress.value });
     }
     await loadLotti();
-    showToast("Produzione avviata con successo", "success");
+    showToast("Lotti creati con successo", "success");
   } catch (err) {
-    console.error("Errore dettagliato:", err);
-    showToast("Errore Blockchain: verifica i parametri o resetta MetaMask.", "error");
+    showToast("Errore creazione", "error");
   } finally { loading.value = false; }
 };
 
-/* =========================
-   ELIMINAZIONE LOTTI
-========================= */
-const handleEliminaLotto = async (lotto) => {
-  if (userRole.value !== "ADMIN") return;
-  if (!confirm("Sei sicuro? L'azione è irreversibile sulla blockchain.")) return;
-  loading.value = true;
-  try {
-    await contractInstance.value.methods.eliminaLotto(lotto.blockchainIndex).send({ from: userAddress.value });
-    await loadLotti();
-  } finally { loading.value = false; }
-};
 
-/* =========================
-   AVANZAMENTO STATO LOTTO
-========================= */
-const avanzaStato = async (lotto) => {
-  if (userRole.value !== 'ADMIN') return;
-  loading.value = true;
-  try {
-    await contractInstance.value.methods.avanzaStato(lotto.blockchainIndex).send({ from: userAddress.value });
-    await loadLotti();
-  } catch {showToast("Errore durante l'avanzamento", "error"); }
-  finally { loading.value = false; }
-};
 
 watch(() => contractInstance.value, async (val) => {
   if (val) await loadLotti();

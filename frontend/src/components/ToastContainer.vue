@@ -1,3 +1,9 @@
+<!--
+  ToastContainer.vue
+
+  Contenitore globale per notifiche toast.
+-->
+
 <template>
   <div class="toast-container">
     <Toast v-for="t in toasts" :key="t.id" :message="t.message" :type="t.type" />

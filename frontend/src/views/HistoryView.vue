@@ -1,8 +1,14 @@
+<!--
+  HistoryView.vue
+
+  Pagina per visualizzare lo storico completo dei lotti vinicoli.
+-->
+
 <template>
   <div class="history-page-wrapper">
     <div class="history-container">
       <header class="page-header-central">
-        <h1 class="main-title">Registro Storico Filiera</h1>
+        <h1 class="main-title">Registro storico filiera</h1>
         <div class="title-divider"></div>
         <p class="subtitle">
           Archivio completo dei lotti
@@ -17,11 +23,11 @@
       <div v-else-if="lotti.length > 0" class="history-content animate-fade-in">
         <div class="stats-overview">
           <div class="stat-card">
-            <span class="stat-label">Totale Lotti</span>
+            <span class="stat-label">Totale lotti</span>
             <span class="stat-value">{{ lotti.length }}</span>
           </div>
           <div class="stat-card">
-            <span class="stat-label">Stato Sistema</span>
+            <span class="stat-label">Stato sistema</span>
             <span class="stat-value status-online">Operativo</span>
           </div>
         </div>
@@ -32,8 +38,8 @@
               <tr>
                 <th>ID</th>
                 <th>Tipologia</th>
-                <th>Stato Attuale</th>
-                <th>Data</th>
+                <th>Stato</th>
+                <th>Data creazione</th>
                 <th class="text-right">Azioni</th>
               </tr>
             </thead>
@@ -72,56 +78,100 @@
 import { ref, inject, onMounted } from "vue";
 import IspezionaButton from "../components/IspezionaButton.vue";
 
+//Contract instance iniettata dal parent
+//Serve per leggere lo storico dei lotti dalla blockchain
 const contractInstance = inject("contractInstance");
 
+//Stato locale del componente
 const lotti = ref([]);
 const loading = ref(true);
 
-const STATUS_LABELS = [
-  "creato",
-  "vendemmiato",
-  "fermentato",
-  "affinato",
-  "imbottigliato",
-  "spedito",
-  "distribuito",
-];
-
+//Funzione di caricamento dello storico
 const loadHistory = async () => {
   if (!contractInstance?.value) return;
 
   loading.value = true;
+
   try {
-    const data = await contractInstance.value.methods.getLotti().call();
+    // Ottiene tutti gli ID dei lotti presenti sul contratto
+    const ids = await contractInstance.value.methods.getAllLottoIds().call();
 
-    lotti.value = data.map((l) => {
-      const tsArray = l.timestamps?.map((t) => Number(t)) || [];
-      const luoghiArray = l.luoghi || [];
+    // Mappe per tradurre gli enum numerici in stringhe leggibili
+    const statoFilieraMap = [
+      "creato", 
+      "vendemmiato",
+      "fermentato",
+      "affinato",
+      "imbottigliato",
+      "spedito",
+      "distribuito"
+    ];
+    const statoControlloMap = [
+      "attivo",
+      "revisione", 
+      "eliminato"
+    ];
 
-      const faseTimestamps = tsArray.slice(1);
-      const faseLuoghi = luoghiArray.slice(1);
+    const lottiCaricati = [];
 
-      return {
-        id: l.id.toString(),
-        tipo: l.tipo,
-        statoRaw: Number(l.stato),
-        statusLabel: STATUS_LABELS[Number(l.stato)] || "Finito",
-        statusClass: `status-${l.stato}`,
-        data:
-          tsArray.length > 0
-            ? new Date(tsArray[tsArray.length - 1] * 1000).toLocaleDateString("it-IT")
-            : "In attesa...",
-        actors: {
-          Agricoltore: l.agricoltore,
-          Supervisore: l.supervisore,
-          Cantiniere: l.cantiniere,
-          Corriere: l.corriere,
-          Distributore: l.distributore,
-        },
-        timestamps: faseTimestamps,
-        luoghi: faseLuoghi,
+    for (const id of ids) {
+      // Dati principali del lotto
+      const lottoData = await contractInstance.value.methods.getLotto(id).call();
+      // Storico avanzamenti del lotto
+      const storico = await contractInstance.value.methods.getStorico(id).call();
+
+      const statoFilieraRaw = Number(lottoData.stato);
+      const statoControlloRaw = Number(lottoData.statoControllo);
+
+      const timestamps = storico.map(e => Number(e.timestamp));
+      const luoghi = storico.map(e => e.luogo);
+
+      // Funzione per determinare label leggibile dello stato
+      const getStatusLabel = (statoFilieraRaw, statoControlloRaw) => {
+        if (statoControlloRaw === 1) return "In revisione";
+        if (statoControlloRaw === 2) return "Bloccato";
+        return statoFilieraMap[statoFilieraRaw];
       };
-    });
+
+      // Costruzione oggetto lotto per la UI
+      lottiCaricati.push({
+        id: lottoData.id.toString(),
+        tipo: lottoData.tipo,
+
+        statoRaw: statoFilieraRaw,
+        statoControlloRaw,
+
+        stato: statoFilieraMap[statoFilieraRaw],
+        statoControllo: statoControlloMap[statoControlloRaw],
+        inRevisione: statoControlloRaw === 1,
+        eliminato: statoControlloRaw === 2,
+
+        statusLabel: getStatusLabel(statoFilieraRaw, statoControlloRaw),
+
+        statusClass: statoControlloRaw === 1 || statoControlloRaw === 2
+          ? "status-revisione"
+          : `status-${statoFilieraMap[statoFilieraRaw]}`,
+
+        data: timestamps.length > 0
+          ? new Date(timestamps[timestamps.length - 1] * 1000)
+              .toLocaleDateString("it-IT")
+          : "In attesa...",
+
+        actors: {
+          agricoltore: lottoData.agricoltore,
+          supervisore: lottoData.supervisore,
+          cantiniere: lottoData.cantiniere,
+          corriere: lottoData.corriere,
+          distributore: lottoData.distributore,
+        },
+
+        timestamps,
+        luoghi,
+        motivazione: lottoData.motivoRevisione || null
+      });
+    }
+
+    lotti.value = lottiCaricati;
 
   } catch (err) {
     console.error("Errore caricamento storico:", err);

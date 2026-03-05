@@ -1,3 +1,9 @@
+<!--
+  NotFound.vue
+
+  Pagina per gestire URL inesistenti (errore 404)
+-->
+
 <template>
   <div class="notfound-container">
     <div class="notfound-content">

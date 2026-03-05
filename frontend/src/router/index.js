@@ -1,3 +1,9 @@
+/**
+ * router.js
+ *
+ * Configurazione dei percorsi per il router
+ */
+
 import { createWebHistory, createRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 
@@ -56,6 +62,11 @@ const router = createRouter({
   routes
 })
 
+/**
+   * Controlla se il percorso richiede permessi
+   * - to.meta.roles contiene i ruoli autorizzati
+   * - Se l’utente non ha il ruolo, redirect a pagina "not-authorized"
+   */
 router.beforeEach((to) => {
   const userStore = useUserStore()
   if (to.meta?.roles && !to.meta.roles.includes(userStore.role)) {
