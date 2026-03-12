@@ -3,7 +3,7 @@
 > Progetto per il corso di Blockchain and Cryptocurrencies   
 > **Leonardo Vorabbi · Jacopo Bonifazi · Gaetano Muscarello** — A.A. 2025/2026
 
-Vinum Veritas è una applicazione decentralizzata (dApp) per la tracciabilità e certificazione della filiera vitivinicola su blockchain Ethereum. Ogni fase della produzione — dalla vendemmia alla distribuzione — viene registrata on-chain in modo immutabile, firmata crittograficamente dall'attore responsabile e verificabile da chiunque.
+Vinum Veritas è una applicazione decentralizzata per la tracciabilità e certificazione della filiera vitivinicola su blockchain Ethereum. Ogni fase della produzione, dalla vendemmia alla distribuzione, viene registrata on-chain in modo immutabile, firmata crittograficamente dall'attore responsabile e verificabile da chiunque.
 
 ---
 
@@ -126,39 +126,6 @@ npm run dev
 
 L'applicazione sarà disponibile su `http://localhost:5173`.
 
----
-
-## Struttura del progetto
-
-```
-vinum-veritas/
-│
-├── blockchain/                   # Smart contract e configurazione Truffle
-│   ├── contracts/
-│   │   └── WineProduction.sol    # Contratto principale
-│   ├── migrations/
-│   │   └── 1_deploy.js           # Script di deploy
-│   ├── test/                     # Test del contratto
-│   └── truffle-config.js         # Configurazione rete Truffle
-│
-├── frontend/                     # Applicazione Vue.js
-│   ├── src/
-│   │   ├── components/           # Componenti Vue
-│   │   ├── views/                # Pagine principali
-│   │   ├── stores/               # Pinia stores (utente, contratto)
-│   │   ├── utils/                # Helper Web3, mappatura stati
-│   │   └── main.js
-│   ├── public/
-│   └── package.json
-│
-├── scripts/
-│   └── locationSimulator.js      # Simulatore di localizzazione per gli eventi
-│
-├── sync-abis.cjs                 # Copia gli ABI da Truffle al frontend dopo ogni compile/migrate
-└── README.md
-```
-
----
 
 ## Screenshot
 
